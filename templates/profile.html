@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>내 정보 수정</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #F2F2F7; padding: 20px; display: flex; justify-content: center; font-family: 'Inter', sans-serif; margin: 0; }
+        .container { width: 100%; max-width: 400px; margin-top: 20px; }
+        .card { background: white; border-radius: 20px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        h2 { text-align: center; margin-bottom: 30px; color: #1C1C1E; font-weight: 800; font-size: 24px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #8E8E93; font-size: 14px; }
+        input { 
+            width: 100%; padding: 15px; border: 1px solid #E5E5EA; border-radius: 12px; 
+            font-size: 16px; box-sizing: border-box; background: #F9F9F9;
+            color: #1C1C1E;
+        }
+        input:focus { outline: none; border-color: #007AFF; background: #fff; }
+        input[readonly] { background-color: #EEEEF0; color: #8E8E93; cursor: not-allowed; }
+        
+        .btn-save { 
+            width: 100%; padding: 18px; background-color: #007AFF; color: white; 
+            border: none; border-radius: 14px; font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 20px;
+        }
+        .btn-cancel {
+            width: 100%; padding: 15px; background-color: transparent; color: #8E8E93;
+            border: none; margin-top: 5px; font-size: 15px; cursor: pointer; font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h2>내 정보 수정</h2>
+            <form action="/profile" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()">
+                
+                <div class="form-group">
+                    <label>프로필 사진</label>
+                    <input type="file" name="profile_img" accept="image/*">
+                </div>
+
+                <div class="form-group">
+                    <label>아이디 (변경 불가)</label>
+                    <input type="text" value="{{ user.user_id }}" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>닉네임</label>
+                    <input type="text" name="nickname" value="{{ user.nickname }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>새 비밀번호 (준비 중)</label>
+                    <input type="password" name="password" placeholder="현재 비밀번호 변경 기능 준비 중입니다" disabled>
+                </div>
+
+                <button type="submit" class="btn-save">저장하기</button>
+                <button type="button" class="btn-cancel" onclick="location.href='/main'">취소</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 한글 포함 여부 체크 함수
+        function hasKorean(str) {
+            const koreanRegex = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/;
+            return koreanRegex.test(str);
+        }
+
+        // [수리 4] 폼 제출 시 실행될 검증 함수 연결
+        function validateForm() {
+            const nicknameInput = document.querySelector('input[name="nickname"]');
+            
+            // 닉네임 유효성 검사 (예시: 비어있는지 확인)
+            if (!nicknameInput.value.trim()) {
+                alert("닉네임을 입력해주세요.");
+                return false;
+            }
+            
+            // 비밀번호 검사는 현재 비활성화 상태지만, 나중에 활성화 시 아래 주석 해제
+            /*
+            const pwInput = document.querySelector('input[name="password"]');
+            if (pwInput.value && hasKorean(pwInput.value)) {
+                alert("비밀번호에 한글을 사용할 수 없습니다.");
+                return false;
+            }
+            */
+            
+            return true;
+        }
+    </script>
+</body>
+</html>
