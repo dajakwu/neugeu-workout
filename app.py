@@ -134,10 +134,14 @@ def run_routine(routine_id):
     if 'user_id' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
     routine = conn.execute('SELECT * FROM routines WHERE id = ?', (routine_id,)).fetchone()
-    exercises = conn.execute('SELECT * FROM exercises WHERE routine_id = ?', (routine_id,)).fetchall()
+    
+    # [핵심 수정] DB에서 가져온 데이터를 '딕셔너리(dict)' 형태로 명확하게 변환해서 보냄
+    # 이렇게 안 하면 자바스크립트가 데이터를 못 읽어서 멈춥니다.
+    exercises_rows = conn.execute('SELECT * FROM exercises WHERE routine_id = ?', (routine_id,)).fetchall()
+    exercises_list = [dict(row) for row in exercises_rows] 
+    
     conn.close()
-    return render_template('run_routine.html', routine=routine, exercises=[dict(ex) for ex in exercises])
-
+    return render_template('run_routine.html', routine=routine, exercises=exercises_list)
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user_id' not in session: return redirect(url_for('login'))
