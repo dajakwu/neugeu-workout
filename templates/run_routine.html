@@ -116,69 +116,68 @@
     </style>
 </head>
 <body>
-    <div class="container" style="padding-bottom: 50px;">
-        
-        <div id="finish-overlay" class="hidden">
-            <div style="font-size: 80px; margin-bottom: 20px;">🔥</div>
-            <h1 style="font-size: 36px; font-weight: 900; margin-bottom: 15px; color: var(--text-primary);">운동 끝!!</h1>
-            <p style="color: var(--text-secondary); margin-bottom: 40px; font-size: 18px; text-align: center;">오늘도 해내셨군요!<br>고생하셨습니다.</p>
-            <button class="btn-action" onclick="location.href='/main'" style="background: var(--text-primary); color: var(--card-bg); width: 250px;">홈으로 돌아가기</button>
-        </div>
-
-        <div class="workout-card">
-            <div id="hj-mode-banner">이효재 모드 활성화: 1세트씩 순환 중 🔥</div>
-
-            <div id="prep-area">
-                <p class="prep-label" style="font-size: 22px; color: #FF9500; font-weight: 800; margin-bottom: 10px;">곧 운동이 시작됩니다!</p>
-                <div class="progress-container">
-                    <svg class="progress-ring" width="240" height="240">
-                        <circle class="progress-ring__circle track" stroke="var(--border-color)" stroke-width="14" fill="transparent" r="110" cx="120" cy="120"/>
-                        <circle id="prep-bar" class="progress-ring__circle" stroke="#FF9500" stroke-width="14" fill="transparent" r="110" cx="120" cy="120"/>
-                    </svg>
-                    <div class="timer-text" id="prep-count">10</div>
-                </div>
-                <h2 id="next-ex-name" style="font-size: 30px; font-weight: 900; color: var(--text-primary); margin-top: 15px;">준비하세요</h2>
-                <button class="btn-action" onclick="skipPrep()" style="background: var(--border-color); color: var(--text-primary); margin-top: 35px;">바로 시작</button>
-            </div>
-
-            <div id="workout-area" class="hidden">
-                <div class="workout-detail-card">
-                    <p class="workout-category">{{ routine.routine_name }}</p>
-                    <h1 id="ex-name" class="workout-main-name">운동 이름</h1>
-                    
-                    <div class="set-badge">
-                        <span id="set-info">1 / 1 SET</span>
-                    </div>
-
-                    <div class="reps-display" id="reps-info">
-                        0회 수행
-                    </div>
-                </div>
-
-                <button id="done-btn" class="btn-action" style="background-color: #34C759; color: white;">수행 완료</button>
-            </div>
-
-            <div id="timer-area" class="hidden">
-                <p style="color: var(--text-secondary); font-weight: 800; letter-spacing: 1px; font-size: 18px;">휴식 중</p>
-                <div class="progress-container">
-                    <svg class="progress-ring" width="240" height="240">
-                        <circle class="progress-ring__circle track" stroke="var(--border-color)" stroke-width="14" fill="transparent" r="110" cx="120" cy="120"/>
-                        <circle id="rest-bar" class="progress-ring__circle" stroke="#007AFF" stroke-width="14" fill="transparent" r="110" cx="120" cy="120"/>
-                    </svg>
-                    <div class="timer-text" id="timer-count">00</div>
-                </div>
-                
-                <div class="btn-row">
-                    <button id="pause-btn" class="btn-action btn-half" style="background: var(--border-color); color: var(--text-primary);">일시정지</button>
-                    <button id="skip-btn" class="btn-action btn-half" style="background: #007AFF; color: white;">건너뛰기</button>
-                </div>
-            </div>
-
-            <a href="/main" onclick="return confirm('운동을 중단하고 나갈까요?')" style="display: block; margin-top: 40px; color: var(--text-secondary); text-decoration: none; font-size: 15px; font-weight: 600;">그만할래요</a>
-        </div>
+<div class="container" style="padding-bottom: 50px;">
+    <div id="finish-overlay" class="hidden">
+        <div style="font-size: 80px; margin-bottom: 20px;">🔥</div>
+        <h1 style="font-size: 36px; font-weight: 900; margin-bottom: 15px; color: var(--text-primary);">운동 끝!!</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 40px; font-size: 18px; text-align: center;">오늘도 해내셨군요!<br>고생하셨습니다.</p>
+        <button class="btn-action" onclick="location.href='/main'" style="background: var(--text-primary); color: var(--card-bg); width: 250px;">홈으로 돌아가기</button>
     </div>
-    
-    <input type="hidden" id="ex-data" value='{{ exercises|tojson|safe }}'>
+
+    <div class="workout-card">
+        <div id="hj-mode-banner">이효재 모드 활성화: 1세트씩 순환 중 🔥</div>
+
+        <div id="prep-area">
+            <p class="prep-label" style="font-size: 22px; color: #FF9500; font-weight: 800; margin-bottom: 10px;">곧 운동이 시작됩니다!</p>
+            <div class="progress-container">
+                <svg class="progress-ring" width="240" height="240">
+                    <circle class="progress-ring__circle track" stroke="var(--border-color)" stroke-width="14" fill="transparent" r="110" cx="120" cy="120" style="stroke-dasharray: 691; stroke-dashoffset: 0;"/>
+                    <circle id="prep-bar" class="progress-ring__circle" stroke="#FF9500" stroke-width="14" fill="transparent" r="110" cx="120" cy="120" style="stroke-dasharray: 691; stroke-dashoffset: 691;"/>
+                </svg>
+                <div class="timer-text" id="prep-count">10</div>
+            </div>
+            <h2 id="next-ex-name" style="font-size: 30px; font-weight: 900; color: var(--text-primary); margin-top: 15px;">준비하세요</h2>
+            <button class="btn-action" onclick="skipPrep()" style="background: var(--border-color); color: var(--text-primary); margin-top: 35px;">바로 시작</button>
+        </div>
+
+        <div id="workout-area" class="hidden">
+            <div class="workout-detail-card" style="width: 96%; max-width: 480px; gap: 20px;">
+                <p class="workout-category" style="letter-spacing: 2px;">{{ routine.routine_name }}</p>
+                <h1 id="ex-name" class="workout-main-name" style="font-size: 46px; white-space: nowrap;">운동 이름</h1>
+                
+                <div class="set-badge">
+                    <span id="set-info">1 / 1 SET</span>
+                </div>
+
+                <div class="reps-display" id="reps-info" style="font-size: 36px; white-space: nowrap;">
+                    0회 수행
+                </div>
+            </div>
+
+            <button id="done-btn" class="btn-action" style="background-color: #34C759; color: white; width: 96%;">수행 완료</button>
+        </div>
+
+        <div id="timer-area" class="hidden">
+            <p style="color: var(--text-secondary); font-weight: 800; letter-spacing: 1px; font-size: 18px;">휴식 중</p>
+            <div class="progress-container">
+                <svg class="progress-ring" width="240" height="240">
+                    <circle class="progress-ring__circle track" stroke="var(--border-color)" stroke-width="14" fill="transparent" r="110" cx="120" cy="120" style="stroke-dasharray: 691; stroke-dashoffset: 0;"/>
+                    <circle id="rest-bar" class="progress-ring__circle" stroke="#007AFF" stroke-width="14" fill="transparent" r="110" cx="120" cy="120" style="stroke-dasharray: 691; stroke-dashoffset: 691;"/>
+                </svg>
+                <div class="timer-text" id="timer-count">00</div>
+            </div>
+            
+            <div class="btn-row" style="display: flex; gap: 15px; width: 96%; justify-content: center;">
+                <button id="pause-btn" class="btn-action btn-half" style="background: var(--border-color); color: var(--text-primary); flex: 1; white-space: nowrap;">일시정지</button>
+                <button id="skip-btn" class="btn-action btn-half" style="background: #007AFF; color: white; flex: 1; white-space: nowrap;">건너뛰기</button>
+            </div>
+        </div>
+
+        <a href="/main" onclick="return confirm('운동을 중단하고 나갈까요?')" style="display: block; margin-top: 40px; color: var(--text-secondary); text-decoration: none; font-size: 15px; font-weight: 600;">그만할래요</a>
+    </div>
+</div>
+
+<input type="hidden" id="ex-data" value='{{ exercises|tojson|safe }}'>
 
     <script>
         const rawData = document.getElementById('ex-data').value;
