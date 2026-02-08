@@ -169,7 +169,26 @@ def get_friends_status():
         if current_time - last_seen > 7: f_dict['is_working_out'] = 0
         friend_list.append(f_dict)
     return jsonify({"friends": friend_list})
-
+@app.route('/delete_routine/<int:routine_id>', methods=['POST'])
+def delete_routine(routine_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # 1. routines.txt에서 해당 루틴 삭제 로직
+    # (기존에 파일 시스템을 사용 중이라면 아래와 유사한 로직이 필요합니다)
+    try:
+        with open('routines.txt', 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        with open('routines.txt', 'w', encoding='utf-8') as f:
+            for line in lines:
+                if not line.startswith(f"{routine_id}|"):
+                    f.write(line)
+                    
+        return redirect(url_for('main'))
+    except Exception as e:
+        print(f"삭제 오류: {e}")
+        return redirect(url_for('main'))
 @app.route('/edit_routine/<int:routine_id>', methods=['GET', 'POST'])
 def edit_routine(routine_id):
     if 'user_id' not in session: return redirect(url_for('login'))
