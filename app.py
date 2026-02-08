@@ -138,17 +138,31 @@ def run_routine(routine_id):
     conn.close()
     return render_template('run_routine.html', routine=routine, exercises=[dict(ex) for ex in exercises])
 
-# [수리] 내 정보 수정: 404 방지를 위해 라우트 이름 보강
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user_id' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
+    
     if request.method == 'POST':
+        new_id = request.form.get('new_id')
         new_nickname = request.form.get('nickname')
+        old_id = session['user_id']
+
+        # 아이디가 바뀌는 경우 관련 테이블 모두 업데이트 (외래키 참조 무결성 유지)
+        if new_id and new_id != old_id:
+            conn.execute('UPDATE users SET user_id = ? WHERE user_id = ?', (new_id, old_id))
+            conn.execute('UPDATE routines SET user_id = ? WHERE user_id = ?', (new_id, old_id))
+            conn.execute('UPDATE history SET user_id = ? WHERE user_id = ?', (new_id, old_id))
+            session['user_id'] = new_id  # 세션 정보 갱신
+        
         if new_nickname:
-            conn.execute('UPDATE users SET nickname = ? WHERE user_id = ?', (new_nickname, session['user_id']))
+            conn.execute('UPDATE users SET nickname = ? WHERE user_id = ?', (new_nickname, session.get('user_id')))
             session['nickname'] = new_nickname
+            
         conn.commit()
+        conn.close()
+        return redirect(url_for('main_dashboard'))
+
     user = conn.execute('SELECT * FROM users WHERE user_id = ?', (session['user_id'],)).fetchone()
     conn.close()
     return render_template('profile.html', user=user)
