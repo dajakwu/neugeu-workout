@@ -1,537 +1,161 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <title>운동 수행 - 느그운동</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='style.css') }}"
-    />
-    <link rel="manifest" href="/static/manifest.json" />
-    <style>
-      /* 1. 타이머 및 기본 레이아웃 */
-      :root {
-        --bg-color: #f2f2f7;
-        --card-bg: #ffffff;
-        --text-primary: #1c1c1e;
-        --text-secondary: #8e8e93;
-        --accent-color: #007aff;
-        --border-color: #e5e5ea;
-      }
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-          Arial, sans-serif;
-        background-color: var(--bg-color);
-        margin: 0;
-        display: flex;
-        justify-content: center;
-        min-height: 100vh;
-        overflow: hidden; /* 스크롤 방지 */
-      }
-      .container {
-        width: 100%;
-        max-width: 480px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        height: 100vh;
-        padding: 20px;
-        box-sizing: border-box;
-      }
-
-      /* 프로그레스 링 스타일 */
-      .progress-container {
-        position: relative;
-        width: 240px;
-        height: 240px;
-        margin: 20px auto;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      .progress-ring {
-        position: absolute;
-        top: 0;
-        left: 0;
-        transform: rotate(-90deg);
-      }
-      .progress-ring__circle {
-        stroke-dasharray: 691; /* 2 * pi * 110 */
-        stroke-dashoffset: 691;
-        transition: stroke-dashoffset 0.1s linear;
-        stroke-linecap: round;
-      }
-      .track {
-        stroke-dashoffset: 0 !important;
-        opacity: 0.3;
-      }
-      .timer-text {
-        position: relative;
-        font-size: 64px;
-        font-weight: 900;
-        color: var(--text-primary);
-        z-index: 10;
-        font-variant-numeric: tabular-nums;
-      }
-
-      /* 카드 및 텍스트 스타일 */
-      .workout-card {
-        background: var(--card-bg);
-        border-radius: 32px;
-        padding: 30px 20px;
-        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: auto;
-        min-height: 500px;
-      }
-      .workout-detail-card {
-        background: var(--card-bg);
-        border-radius: 32px;
-        padding: 40px 20px;
-        margin: 10px auto 30px auto;
-        width: 100%;
-        border: 1px solid var(--border-color);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 15px;
-        box-sizing: border-box;
-      }
-      .workout-category {
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--text-secondary);
-        letter-spacing: 2px;
-      }
-      .workout-main-name {
-        font-size: 42px;
-        font-weight: 900;
-        color: var(--text-primary);
-        margin: 0;
-        word-break: keep-all;
-        line-height: 1.2;
-      }
-      .set-badge {
-        background: rgba(0, 122, 255, 0.1);
-        color: var(--accent-color);
-        padding: 8px 24px;
-        border-radius: 50px;
-        font-weight: 800;
-        font-size: 18px;
-      }
-      .reps-display {
-        font-size: 36px;
-        font-weight: 800;
-        color: #34c759;
-      }
-
-      /* 버튼 스타일 */
-      .btn-action {
-        width: 100%;
-        height: 70px;
-        border-radius: 20px;
-        font-size: 20px;
-        font-weight: 800;
-        border: none;
-        cursor: pointer;
-        transition: transform 0.1s;
-      }
-      .btn-action:active {
-        transform: scale(0.98);
-      }
-      .btn-row {
-        display: flex;
-        gap: 15px;
-        width: 100%;
-        margin-top: 15px;
-      }
-      .btn-half {
-        flex: 1;
-      }
-
-      #hj-mode-banner {
-        background: #ff2d55;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 700;
-        margin-bottom: 20px;
-        display: none;
-      }
-      #finish-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: var(--card-bg);
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-      }
-      .hidden {
-        display: none !important;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <div id="finish-overlay" class="hidden">
-        <div style="font-size: 80px; margin-bottom: 20px">🔥</div>
-        <h1 style="font-size: 36px; font-weight: 900; margin-bottom: 15px">
-          운동 끝!!
-        </h1>
-        <p
-          style="
-            color: var(--text-secondary);
-            margin-bottom: 40px;
-            font-size: 18px;
-            text-align: center;
-          "
-        >
-          오늘도 해내셨군요!<br />고생하셨습니다.
-        </p>
-        <button
-          class="btn-action"
-          onclick="location.href = '/main'"
-          style="background: #1c1c1e; color: white; width: 250px"
-        >
-          홈으로 돌아가기
-        </button>
-      </div>
-
-      <div class="workout-card">
-        <div id="hj-mode-banner">이효재 모드 활성화: 1세트씩 순환 🔥</div>
-
-        <div id="prep-area">
-          <p
-            style="
-              font-size: 22px;
-              color: #ff9500;
-              font-weight: 800;
-              margin-bottom: 10px;
-            "
-          >
-            곧 운동이 시작됩니다!
-          </p>
-          <div class="progress-container">
-            <svg class="progress-ring" width="240" height="240">
-              <circle
-                class="progress-ring__circle track"
-                stroke="var(--border-color)"
-                stroke-width="14"
-                fill="transparent"
-                r="110"
-                cx="120"
-                cy="120"
-              />
-              <circle
-                id="prep-bar"
-                class="progress-ring__circle"
-                stroke="#FF9500"
-                stroke-width="14"
-                fill="transparent"
-                r="110"
-                cx="120"
-                cy="120"
-              />
-            </svg>
-            <div class="timer-text" id="prep-count">10</div>
-          </div>
-          <h2
-            id="next-ex-name-prep"
-            style="font-size: 30px; font-weight: 900; margin-top: 15px"
-          >
-            준비하세요
-          </h2>
-          <button
-            class="btn-action"
-            onclick="skipPrep()"
-            style="
-              background: var(--border-color);
-              color: var(--text-primary);
-              margin-top: 30px;
-            "
-          >
-            바로 시작
-          </button>
-        </div>
-
-        <div id="workout-area" class="hidden">
-          <div class="workout-detail-card">
-            <p class="workout-category">{{ routine.routine_name }}</p>
-            <h1 id="ex-name" class="workout-main-name">운동 이름</h1>
-            <div class="set-badge"><span id="set-info">1 / 1 SET</span></div>
-            <div class="reps-display" id="reps-info">0회 수행</div>
-          </div>
-          <button
-            onclick="finishSet()"
-            id="done-btn"
-            class="btn-action"
-            style="background-color: #34c759; color: white"
-          >
-            수행 완료
-          </button>
-        </div>
-
-        <div id="timer-area" class="hidden">
-          <p
-            style="
-              color: var(--text-secondary);
-              font-weight: 800;
-              font-size: 18px;
-            "
-          >
-            휴식 중
-          </p>
-          <div class="progress-container">
-            <svg class="progress-ring" width="240" height="240">
-              <circle
-                class="progress-ring__circle track"
-                stroke="var(--border-color)"
-                stroke-width="14"
-                fill="transparent"
-                r="110"
-                cx="120"
-                cy="120"
-              />
-              <circle
-                id="rest-bar"
-                class="progress-ring__circle"
-                stroke="#007AFF"
-                stroke-width="14"
-                fill="transparent"
-                r="110"
-                cx="120"
-                cy="120"
-              />
-            </svg>
-            <div class="timer-text" id="timer-count">00</div>
-          </div>
-          <div class="btn-row">
-            <button
-              onclick="pauseTimer()"
-              id="pause-btn"
-              class="btn-action btn-half"
-              style="
-                background: var(--border-color);
-                color: var(--text-primary);
-              "
-            >
-              일시정지
-            </button>
-            <button
-              onclick="skipRest()"
-              class="btn-action btn-half"
-              style="background: #007aff; color: white"
-            >
-              건너뛰기
-            </button>
-          </div>
-        </div>
-
-        <a
-          href="/main"
-          onclick="return confirm('운동을 중단하고 나갈까요?');"
-          style="
-            display: block;
-            margin-top: 30px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-weight: 600;
-          "
-          >그만할래요</a
-        >
-      </div>
-    </div>
-
-    <input type="hidden" id="ex-data" value="{{ exercises|tojson|safe }}" />
-    <input
-      type="hidden"
-      id="is-hj"
-      value="{{ 1 if routine.is_hj_mode else 0 }}"
-    />
+<script id="exercises-data" type="application/json">
+        {{ exercises|tojson|safe }}
+    </script>
+    <input type="hidden" id="is-hj" value="{{ 1 if routine.is_hj_mode else 0 }}">
 
     <script>
-      // [핵심 로직] 데이터를 미리 '평탄화(Flatten)'해서 재생 목록을 만듭니다.
-      const rawData = JSON.parse(document.getElementById("ex-data").value);
-      const isHjMode = document.getElementById("is-hj").value == "1";
+        // [수정] 안전하게 데이터를 읽어오는 방식
+        const rawDataElement = document.getElementById("exercises-data");
+        const rawData = JSON.parse(rawDataElement.textContent);
+        const exercises = rawData; 
+        const isHjMode = document.getElementById("is-hj").value == "1";
 
-      let playList = []; // 여기에 운동 순서를 쫙 펼칩니다.
+        let playList = []; 
 
-      if (isHjMode) {
-        document.getElementById("hj-mode-banner").style.display = "block";
-        // 이효재 모드: 1세트씩 순환 (최대 세트 수만큼 반복)
-        let maxSets = 0;
-        rawData.forEach((ex) => (maxSets = Math.max(maxSets, ex.sets)));
+        // 데이터가 잘 로드되었는지 확인하는 안전장치
+        if (!exercises || exercises.length === 0) {
+            console.error("운동 데이터가 비어있습니다.");
+        }
 
-        for (let s = 1; s <= maxSets; s++) {
-          rawData.forEach((ex) => {
-            if (s <= ex.sets) {
-              playList.push({ ...ex, currentSet: s, totalSets: ex.sets });
+        if (isHjMode) {
+            document.getElementById("hj-mode-banner").style.display = "block";
+            let maxSets = 0;
+            exercises.forEach((ex) => (maxSets = Math.max(maxSets, ex.sets)));
+
+            for (let s = 1; s <= maxSets; s++) {
+                exercises.forEach((ex) => {
+                    if (s <= ex.sets) {
+                        playList.push({ ...ex, currentSet: s, totalSets: ex.sets });
+                    }
+                });
             }
-          });
-        }
-      } else {
-        // 일반 모드: 한 운동 끝내고 다음 운동
-        rawData.forEach((ex) => {
-          for (let s = 1; s <= ex.sets; s++) {
-            playList.push({ ...ex, currentSet: s, totalSets: ex.sets });
-          }
-        });
-      }
-
-      let currentIndex = 0;
-      let timerInterval = null;
-      let timeLeft = 0;
-      let totalTime = 0;
-      let isPaused = false;
-      const CIRCUMFERENCE = 691;
-
-      // 시작 진입점
-      window.onload = function () {
-        if (playList.length > 0) {
-          document.getElementById("next-ex-name-prep").innerText =
-            playList[0].name;
-          startPrep();
         } else {
-          alert("운동 데이터가 없습니다.");
-          location.href = "/main";
-        }
-      };
-
-      // --- 기능 함수들 ---
-
-      function updateRing(id, current, total) {
-        const circle = document.getElementById(id);
-        const offset = CIRCUMFERENCE - (current / total) * CIRCUMFERENCE;
-        circle.style.strokeDashoffset = offset;
-      }
-
-      // 1. 준비 타이머
-      function startPrep() {
-        clearInterval(timerInterval);
-        document.getElementById("prep-area").classList.remove("hidden");
-        document.getElementById("workout-area").classList.add("hidden");
-        document.getElementById("timer-area").classList.add("hidden");
-
-        let prepTime = 10;
-        timeLeft = prepTime;
-        updateRing("prep-bar", timeLeft, prepTime);
-
-        timerInterval = setInterval(() => {
-          timeLeft -= 0.1; // 부드러운 감소
-          document.getElementById("prep-count").innerText = Math.ceil(timeLeft);
-          updateRing("prep-bar", timeLeft, prepTime);
-
-          if (timeLeft <= 0) {
-            skipPrep();
-          }
-        }, 100);
-      }
-
-      function skipPrep() {
-        clearInterval(timerInterval);
-        showWorkout();
-      }
-
-      // 2. 운동 화면 표시
-      function showWorkout() {
-        document.getElementById("prep-area").classList.add("hidden");
-        document.getElementById("timer-area").classList.add("hidden");
-        document.getElementById("workout-area").classList.remove("hidden");
-
-        const currentItem = playList[currentIndex];
-        document.getElementById("ex-name").innerText = currentItem.name;
-        document.getElementById("set-info").innerText =
-          `${currentItem.currentSet} / ${currentItem.totalSets} SET`;
-        document.getElementById("reps-info").innerText =
-          `${currentItem.reps}회 수행`;
-
-        // 마지막 운동인지 확인
-        const btn = document.getElementById("done-btn");
-        if (currentIndex >= playList.length - 1) {
-          btn.innerText = "운동 종료 (결과 저장)";
-          btn.style.backgroundColor = "#5856D6";
-        } else {
-          btn.innerText = "수행 완료";
-          btn.style.backgroundColor = "#34C759";
-        }
-      }
-
-      // 3. 세트 완료 버튼 클릭 시
-      function finishSet() {
-        // 마지막 운동이면 종료
-        if (currentIndex >= playList.length - 1) {
-          finishWorkoutSession();
-          return;
+            exercises.forEach((ex) => {
+                for (let s = 1; s <= ex.sets; s++) {
+                    playList.push({ ...ex, currentSet: s, totalSets: ex.sets });
+                }
+            });
         }
 
-        // 휴식 시작 (다음 운동으로 인덱스 이동)
-        const restTime = playList[currentIndex].rest_time;
-        currentIndex++;
-        startRest(restTime);
-      }
+        // ... (이하 로직 동일하지만, 변수명 충돌 방지를 위해 currentIndex 등 확인) ...
+        let currentIndex = 0;
+        let timerInterval = null;
+        let timeLeft = 0;
+        let totalTime = 0;
+        let isPaused = false;
+        const CIRCUMFERENCE = 691;
 
-      // 4. 휴식 타이머
-      function startRest(duration) {
-        clearInterval(timerInterval);
-        document.getElementById("workout-area").classList.add("hidden");
-        document.getElementById("timer-area").classList.remove("hidden");
+        window.onload = function () {
+            if (playList.length > 0) {
+                document.getElementById("next-ex-name-prep").innerText = playList[0].name;
+                startPrep();
+            } else {
+                alert("수행할 운동이 없습니다. 루틴에 운동을 추가해주세요!");
+                location.href = "/main";
+            }
+        };
 
-        timeLeft = duration;
-        totalTime = duration;
-        isPaused = false;
-        document.getElementById("pause-btn").innerText = "일시정지";
-        updateRing("rest-bar", timeLeft, totalTime);
-        document.getElementById("timer-count").innerText = timeLeft;
+        // ... (나머지 startPrep, showWorkout 등의 함수는 기획자님 코드 그대로 사용) ...
+        function updateRing(id, current, total) {
+            const circle = document.getElementById(id);
+            const offset = CIRCUMFERENCE - (current / total) * CIRCUMFERENCE;
+            circle.style.strokeDashoffset = offset;
+        }
 
-        timerInterval = setInterval(() => {
-          if (!isPaused) {
-            timeLeft -= 0.1;
-            document.getElementById("timer-count").innerText =
-              Math.ceil(timeLeft);
+        function startPrep() {
+            clearInterval(timerInterval);
+            document.getElementById("prep-area").classList.remove("hidden");
+            document.getElementById("workout-area").classList.add("hidden");
+            document.getElementById("timer-area").classList.add("hidden");
+
+            let prepTime = 10;
+            timeLeft = prepTime;
+            updateRing("prep-bar", timeLeft, prepTime);
+
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                document.getElementById("prep-count").innerText = Math.ceil(timeLeft);
+                updateRing("prep-bar", timeLeft, prepTime);
+
+                if (timeLeft <= 0) {
+                    skipPrep();
+                }
+            }, 100);
+        }
+
+        function skipPrep() {
+            clearInterval(timerInterval);
+            showWorkout();
+        }
+
+        function showWorkout() {
+            document.getElementById("prep-area").classList.add("hidden");
+            document.getElementById("timer-area").classList.add("hidden");
+            document.getElementById("workout-area").classList.remove("hidden");
+
+            const currentItem = playList[currentIndex];
+            document.getElementById("ex-name").innerText = currentItem.name;
+            document.getElementById("set-info").innerText = `${currentItem.currentSet} / ${currentItem.totalSets} SET`;
+            document.getElementById("reps-info").innerText = `${currentItem.reps}회 수행`;
+
+            const btn = document.getElementById("done-btn");
+            if (currentIndex >= playList.length - 1) {
+                btn.innerText = "운동 종료 (결과 저장)";
+                btn.style.backgroundColor = "#5856D6";
+            } else {
+                btn.innerText = "수행 완료";
+                btn.style.backgroundColor = "#34C759";
+            }
+        }
+
+        function finishSet() {
+            if (currentIndex >= playList.length - 1) {
+                finishWorkoutSession();
+                return;
+            }
+            const restTime = playList[currentIndex].rest_time;
+            currentIndex++;
+            startRest(restTime);
+        }
+
+        function startRest(duration) {
+            clearInterval(timerInterval);
+            document.getElementById("workout-area").classList.add("hidden");
+            document.getElementById("timer-area").classList.remove("hidden");
+
+            timeLeft = duration;
+            totalTime = duration;
+            isPaused = false;
+            document.getElementById("pause-btn").innerText = "일시정지";
             updateRing("rest-bar", timeLeft, totalTime);
+            document.getElementById("timer-count").innerText = timeLeft;
 
-            if (timeLeft <= 0) {
-              skipRest();
-            }
-          }
-        }, 100);
-      }
+            timerInterval = setInterval(() => {
+                if (!isPaused) {
+                    timeLeft -= 0.1;
+                    document.getElementById("timer-count").innerText = Math.ceil(timeLeft);
+                    updateRing("rest-bar", timeLeft, totalTime);
 
-      function pauseTimer() {
-        isPaused = !isPaused;
-        document.getElementById("pause-btn").innerText = isPaused
-          ? "재개"
-          : "일시정지";
-      }
+                    if (timeLeft <= 0) {
+                        skipRest();
+                    }
+                }
+            }, 100);
+        }
 
-      function skipRest() {
-        clearInterval(timerInterval);
-        showWorkout();
-      }
+        function pauseTimer() {
+            isPaused = !isPaused;
+            document.getElementById("pause-btn").innerText = isPaused ? "재개" : "일시정지";
+        }
 
-      // 5. 최종 종료
-      function finishWorkoutSession() {
-        // 서버에 완료 기록 전송
-        fetch("/api/record_workout_done", { method: "POST" });
+        function skipRest() {
+            clearInterval(timerInterval);
+            showWorkout();
+        }
 
-        document.getElementById("workout-area").classList.add("hidden");
-        document.getElementById("finish-overlay").classList.remove("hidden");
-      }
+        function finishWorkoutSession() {
+            fetch("/api/record_workout_done", { method: "POST" });
+            document.getElementById("workout-area").classList.add("hidden");
+            document.getElementById("finish-overlay").classList.remove("hidden");
+        }
     </script>
-  </body>
-</html>
