@@ -26,12 +26,12 @@
         }
         .container {
             width: 100%;
-            max-width: 480px;
+            max-width: 550px; /* 기존 480px에서 확장 */
             display: flex;
             flex-direction: column;
             justify-content: center;
             height: 100vh;
-            padding: 20px;
+            padding: 10px; /* 패딩을 줄여서 가로 공간 확보 */
             box-sizing: border-box;
         }
         .progress-container {
@@ -66,31 +66,14 @@
             z-index: 10;
             font-variant-numeric: tabular-nums;
         }
-        .workout-card {
-            background: var(--card-bg);
-            border-radius: 32px;
-            padding: 30px 20px;
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: auto;
-            min-height: 500px;
+        .workout-card, .workout-detail-card {
+            width: 100% !important; /* 가로를 꽉 채우도록 변경 */
+            max-width: none !important;
+            padding: 30px 15px;
         }
-        .workout-detail-card {
-            background: var(--card-bg);
-            border-radius: 32px;
-            padding: 40px 20px;
-            margin: 10px auto 30px auto;
-            width: 100%;
-            border: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-            box-sizing: border-box;
+        .workout-main-name {
+            font-size: 52px; /* 이름을 좀 더 큼직하게 */
+            word-break: keep-all;
         }
         .workout-category { font-size: 15px; font-weight: 700; color: var(--text-secondary); letter-spacing: 2px; }
         .workout-main-name { font-size: 42px; font-weight: 900; color: var(--text-primary); margin: 0; word-break: keep-all; line-height: 1.2; }
@@ -162,11 +145,15 @@
     <script id="exercises-data" type="application/json">{{ exercises|tojson|safe }}</script>
     <input type="hidden" id="is-hj" value="{{ 1 if routine.is_hj_mode else 0 }}">
 
-    <script>
-        // 데이터 로드
+<script>
+        // 1. 데이터 및 초기 변수 로드
         const dataElement = document.getElementById("exercises-data");
         const exercises = JSON.parse(dataElement.textContent);
         const isHjMode = document.getElementById("is-hj").value == "1";
+        
+        // [수정] 오디오 컨텍스트를 전역으로 선언하되, 사용자 상호작용 후 활성화
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
 
         let playList = [];
         let currentIndex = 0;
@@ -176,7 +163,31 @@
         let isPaused = false;
         const CIRCUMFERENCE = 691;
 
-        // 플레이리스트 생성
+        // 2. 사운드 재생 함수 (Web Audio API)
+        function playBeep(freq, duration, volume = 0.1) {
+            try {
+                if (!audioCtx) audioCtx = new AudioContext();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = "sine";
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.log("사운드 재생 실패:", e);
+            }
+        }
+
+        // 3. 플레이리스트 생성 (이효재 모드 / 일반 모드 분기)
         if (isHjMode) {
             document.getElementById("hj-mode-banner").style.display = "block";
             let maxSets = 0;
@@ -192,6 +203,7 @@
             });
         }
 
+        // 4. 페이지 로드 시 초기화
         window.onload = function() {
             if (playList.length > 0) {
                 document.getElementById("next-ex-name-prep").innerText = playList[0].name;
@@ -202,6 +214,7 @@
             }
         };
 
+        // 5. 타이머 링 업데이트 함수
         function updateRing(id, current, total) {
             const circle = document.getElementById(id);
             if (!circle) return;
@@ -209,35 +222,55 @@
             circle.style.strokeDashoffset = offset;
         }
 
+        // 6. 준비 단계 시작 (카운트다운 사운드 포함)
         function startPrep() {
             clearInterval(timerInterval);
             document.getElementById("prep-area").classList.remove("hidden");
             document.getElementById("workout-area").classList.add("hidden");
             document.getElementById("timer-area").classList.add("hidden");
+            
             let prepTime = 10;
             timeLeft = prepTime;
             updateRing("prep-bar", timeLeft, prepTime);
+            
             timerInterval = setInterval(() => {
                 timeLeft -= 0.1;
-                document.getElementById("prep-count").innerText = Math.ceil(timeLeft);
+                const displayTime = Math.ceil(timeLeft);
+                document.getElementById("prep-count").innerText = displayTime;
                 updateRing("prep-bar", timeLeft, prepTime);
-                if (timeLeft <= 0) skipPrep();
+                
+                // 3, 2, 1초 알림음 (정확한 초 단위에서 발생하도록 반올림 체크)
+                if (Math.abs(timeLeft - Math.floor(timeLeft)) < 0.05 && displayTime <= 3 && displayTime > 0) {
+                    playBeep(440, 0.1);
+                }
+
+                if (timeLeft <= 0) {
+                    playBeep(880, 0.3); // 시작 신호음
+                    skipPrep();
+                }
             }, 100);
         }
 
         function skipPrep() {
+            // 사용자 클릭 시 오디오 엔진 깨우기 (브라우저 정책 대응)
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
             clearInterval(timerInterval);
             showWorkout();
         }
 
+        // 7. 운동 화면 표시 (UI 최적화)
         function showWorkout() {
             document.getElementById("prep-area").classList.add("hidden");
             document.getElementById("timer-area").classList.add("hidden");
             document.getElementById("workout-area").classList.remove("hidden");
+            
             const cur = playList[currentIndex];
             document.getElementById("ex-name").innerText = cur.name;
             document.getElementById("set-info").innerText = `${cur.currentSet} / ${cur.totalSets} SET`;
             document.getElementById("reps-info").innerText = `${cur.reps}회 수행`;
+            
             const btn = document.getElementById("done-btn");
             if (currentIndex >= playList.length - 1) {
                 btn.innerText = "운동 종료 (결과 저장)";
@@ -248,7 +281,9 @@
             }
         }
 
+        // 8. 세트 완료 처리
         function finishSet() {
+            playBeep(660, 0.1); // 버튼 클릭 피드백음
             if (currentIndex >= playList.length - 1) {
                 finishWorkoutSession();
                 return;
@@ -258,22 +293,35 @@
             startRest(restTime);
         }
 
+        // 9. 휴식 타이머 (3초 예보음 포함)
         function startRest(duration) {
             clearInterval(timerInterval);
             document.getElementById("workout-area").classList.add("hidden");
             document.getElementById("timer-area").classList.remove("hidden");
+            
             timeLeft = duration;
             totalTime = duration;
             isPaused = false;
             document.getElementById("pause-btn").innerText = "일시정지";
             document.getElementById("timer-count").innerText = timeLeft;
             updateRing("rest-bar", timeLeft, totalTime);
+            
             timerInterval = setInterval(() => {
                 if (!isPaused) {
                     timeLeft -= 0.1;
-                    document.getElementById("timer-count").innerText = Math.ceil(timeLeft);
+                    const displayTime = Math.ceil(timeLeft);
+                    document.getElementById("timer-count").innerText = displayTime;
                     updateRing("rest-bar", timeLeft, totalTime);
-                    if (timeLeft <= 0) skipRest();
+
+                    // 휴식 종료 3, 2, 1초 전 알림
+                    if (Math.abs(timeLeft - Math.floor(timeLeft)) < 0.05 && displayTime <= 3 && displayTime > 0) {
+                        playBeep(440, 0.05);
+                    }
+
+                    if (timeLeft <= 0) {
+                        playBeep(880, 0.3, 0.15); // 운동 재개 신호음
+                        skipRest();
+                    }
                 }
             }, 100);
         }
@@ -281,6 +329,8 @@
         function pauseTimer() {
             isPaused = !isPaused;
             document.getElementById("pause-btn").innerText = isPaused ? "재개" : "일시정지";
+            // 일시정지 해제 시에도 오디오 재개 시도
+            if (!isPaused && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
 
         function skipRest() {
@@ -288,7 +338,9 @@
             showWorkout();
         }
 
+        // 10. 세션 종료 처리
         function finishWorkoutSession() {
+            playBeep(1200, 0.5, 0.2); // 최종 완료 환호음 성격
             fetch("/api/record_workout_done", { method: "POST" });
             document.getElementById("workout-area").classList.add("hidden");
             document.getElementById("finish-overlay").classList.remove("hidden");
