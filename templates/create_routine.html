@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>루틴 설계 - 느그운동</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        .ex-card { background: #fff; border-radius: 16px; padding: 15px; margin-bottom: 12px; border: 1px solid #E5E5EA; position: relative; }
+        .ex-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .ex-summary { font-weight: 700; color: var(--text-primary); }
+        .ex-details { margin-top: 15px; display: none; border-top: 1px solid #F2F2F7; padding-top: 15px; }
+        .ex-details.active { display: block; }
+        
+        .arrow-icon { transition: transform 0.3s; color: var(--text-secondary); }
+        .arrow-icon.active { transform: rotate(180deg); }
+        
+        .del-btn { color: var(--error-color); font-size: 13px; font-weight: 600; background: none; width: auto; padding: 0; margin: 0; }
+        .add-more-btn { background: #F2F2F7; color: var(--accent-color); font-weight: 700; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-box">
+            <h2 style="margin-bottom: 25px;">루틴 설계</h2>
+            <form method="POST" id="routine-form">
+                <p class="input-label">루틴 이름</p>
+                <input type="text" name="routine_name" placeholder="예: 하체 박살" required style="background: #fff; border: 1px solid #E5E5EA;">
+                
+                <div id="exercise-list" style="margin-top: 20px;">
+                    </div>
+                
+                <button type="button" class="add-more-btn" onclick="addExerciseCard()">+ 운동 추가</button>
+                <button type="submit" style="margin-top: 30px;">루틴 저장하기</button>
+                <button type="button" onclick="location.href='/main'" style="background: none; color: var(--text-secondary); font-weight: 400; font-size: 14px;">취소</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let exCount = 0;
+
+        function addExerciseCard() {
+            exCount++;
+            const list = document.getElementById('exercise-list');
+            const card = document.createElement('div');
+            card.className = 'ex-card';
+            card.id = `card-${exCount}`;
+            
+            card.innerHTML = `
+                <div class="ex-header" onclick="toggleCard(${exCount})">
+                    <span class="ex-summary" id="sum-${exCount}">운동 ${exCount} (입력 전)</span>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span class="del-btn" onclick="removeCard(event, ${exCount})">삭제</span>
+                        <span class="arrow-icon" id="arrow-${exCount}">▼</span>
+                    </div>
+                </div>
+                <div class="ex-details active" id="details-${exCount}">
+                    <p class="input-label">종목 명</p>
+                    <input type="text" name="ex_name" placeholder="스쿼트 등" required oninput="updateSummary(${exCount}, this)">
+                    <p class="input-label">세트 / 횟수 / 휴식(초)</p>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" name="ex_sets" placeholder="세트" min="1" required>
+                        <input type="number" name="ex_reps" placeholder="회" min="1" required>
+                        <input type="number" name="ex_rest" placeholder="초" min="0" required>
+                    </div>
+                </div>
+            `;
+            list.appendChild(card);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        function toggleCard(id) {
+            const details = document.getElementById(`details-${id}`);
+            const arrow = document.getElementById(`arrow-${id}`);
+            details.classList.toggle('active');
+            arrow.classList.toggle('active');
+        }
+
+        function updateSummary(id, input) {
+            const summary = document.getElementById(`sum-${id}`);
+            summary.innerText = input.value || `운동 ${id} (입력 전)`;
+        }
+
+        function removeCard(event, id) {
+            event.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+            if(confirm('이 종목을 삭제할까요?')) {
+                const card = document.getElementById(`card-${id}`);
+                card.remove();
+            }
+        }
+        function sendHeartbeat() {
+    fetch('/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 1 }) 
+    });
+}
+
+// 초기 실행 및 3초 간격 유지
+sendHeartbeat();
+const heartbeatInterval = setInterval(sendHeartbeat, 3000);
+
+// 페이지 이탈 시 오프라인 처리
+window.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        navigator.sendBeacon('/update_status', JSON.stringify({ status: 0 }));
+    }
+});
+
+        // 초기 실행 시 카드 하나 자동 추가
+        addExerciseCard();
+    </script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>운동 기록</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; margin-bottom: 20px; }
+        .back-btn { text-decoration: none; font-size: 24px; color: #1C1C1E; font-weight: 700; }
+        
+        .calendar-card { background: #fff; border-radius: 24px; padding: 25px; border: 1px solid #E5E5EA; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+        
+        /* [수정] 네비게이션 레이아웃 전면 개편 */
+        .calendar-nav { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 25px;
+            position: relative; /* 상대 위치 설정 */
+        }
+        
+        .nav-btn { 
+            background: none; 
+            border: none; 
+            font-size: 24px; 
+            cursor: pointer; 
+            color: #007AFF; 
+            padding: 10px; 
+            z-index: 10; /* 버튼이 위로 오도록 */
+        }
+        
+        /* [핵심 수정] 타이틀을 무조건 중앙에 배치 */
+        .month-title { 
+            font-size: 20px; 
+            font-weight: 800; 
+            white-space: nowrap; 
+            position: absolute; 
+            left: 50%; 
+            transform: translateX(-50%); /* 정확한 가로 중앙 정렬 */
+            pointer-events: none; /* 버튼 클릭 방해 방지 */
+        }
+        
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; text-align: center; }
+        .day-label { color: #8E8E93; font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+        .day {
+            height: 45px; line-height: 45px; font-size: 16px; border-radius: 50%;
+            cursor: pointer; transition: all 0.2s; position: relative; font-weight: 600;
+        }
+        .day:active { background: #F2F2F7; transform: scale(0.9); }
+        
+        .day.stamped { background-color: #34C759; color: white; box-shadow: 0 4px 10px rgba(52, 199, 89, 0.4); }
+        .day.today { border: 2px solid #007AFF; box-sizing: border-box; color: #007AFF; }
+        .day.today.stamped { border: none; color: white; }
+        .day.empty { pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="/main" class="back-btn">〈 메인으로</a>
+            <span style="font-weight: 700;">기록</span>
+        </div>
+
+        <div class="calendar-card">
+            <div class="calendar-nav">
+                <button class="nav-btn" onclick="changeMonth(-1)">〈</button>
+                <span class="month-title" id="month-title"></span>
+                <button class="nav-btn" onclick="changeMonth(1)">〉</button>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+        
+        <p style="text-align: center; color: #8E8E93; margin-top: 20px; font-size: 14px;">
+            날짜를 터치하여 기록을 추가하거나 삭제할 수 있어요.
+        </p>
+    </div>
+
+    <script>
+        let date = new Date();
+        
+        async function loadCalendar() {
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            document.getElementById('month-title').innerText = `${year}년 ${month}월`;
+            
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = `
+                <div class="day-label" style="color:#FF3B30">일</div><div class="day-label">월</div><div class="day-label">화</div>
+                <div class="day-label">수</div><div class="day-label">목</div><div class="day-label">금</div><div class="day-label" style="color:#007AFF">토</div>
+            `;
+
+            const response = await fetch(`/api/get_history/${year}/${month}`);
+            const history = await response.json(); 
+
+            const firstDay = new Date(year, month - 1, 1).getDay();
+            const lastDate = new Date(year, month, 0).getDate();
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            for(let i=0; i<firstDay; i++) grid.innerHTML += `<div class="day empty"></div>`;
+
+            for(let d=1; d<=lastDate; d++) {
+                const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isStamped = history.includes(dateStr);
+                const isToday = (dateStr === todayStr);
+
+                const div = document.createElement('div');
+                div.className = `day ${isStamped ? 'stamped' : ''} ${isToday ? 'today' : ''}`;
+                div.innerText = d;
+                div.onclick = () => toggleStamp(dateStr, div);
+                grid.appendChild(div);
+            }
+        }
+
+        async function toggleStamp(dateStr, el) {
+            el.classList.toggle('stamped');
+            await fetch('/api/toggle_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: dateStr })
+            });
+        }
+
+        function changeMonth(delta) {
+            date.setMonth(date.getMonth() + delta);
+            loadCalendar();
+        }
+        function sendHeartbeat() {
+    fetch('/update_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 1 }) 
+    });
+}
+
+// 초기 실행 및 3초 간격 유지
+sendHeartbeat();
+const heartbeatInterval = setInterval(sendHeartbeat, 3000);
+
+// 페이지 이탈 시 오프라인 처리
+window.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'hidden') {
+        navigator.sendBeacon('/update_status', JSON.stringify({ status: 0 }));
+    }
+});
+
+        loadCalendar();
+    </script>
+</body>
+</html>

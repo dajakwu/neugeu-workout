@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>루틴 수정 - 느그운동</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/static/manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        .ex-card { 
+            background: var(--card-bg); border-radius: 16px; padding: 15px; 
+            margin-bottom: 12px; border: 1px solid var(--border-color); position: relative; 
+        }
+        
+        /* [핵심] 드래그 중일 때 스타일 */
+        .sortable-ghost { opacity: 0.4; background: var(--accent-color) !important; }
+        
+        .ex-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        
+        /* [핵심] 드래그 전용 핸들 스타일 */
+        .drag-handle {
+            cursor: grab; color: var(--text-secondary); font-size: 20px; 
+            padding: 5px 10px 5px 0; touch-action: none; /* 모바일 터치 간섭 방지 */
+        }
+        .drag-handle:active { cursor: grabbing; color: var(--accent-color); }
+
+        .ex-summary { font-weight: 700; color: var(--text-primary); flex: 1; cursor: pointer; }
+        
+        .ex-details { margin-top: 15px; display: none; border-top: 1px solid var(--border-color); padding-top: 15px; }
+        .ex-details.active { display: block; }
+        
+        .arrow-icon { transition: transform 0.3s; color: var(--text-secondary); cursor: pointer; padding: 5px; }
+        .arrow-icon.active { transform: rotate(180deg); }
+        
+        .del-btn { color: var(--error-color); font-size: 13px; font-weight: 600; cursor: pointer; padding: 5px; }
+        
+        .hj-config-card { 
+            background: #FFF0F5; border-radius: 16px; padding: 20px; margin-bottom: 20px; 
+            border: 1px solid #FFD1DF; display: flex; justify-content: space-between; align-items: center;
+        }
+        [data-theme='dark'] .hj-config-card { background: #2D1A1E; border-color: #4A262D; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-box">
+            <h2 style="margin-bottom: 25px;">루틴 수정</h2>
+            <form method="POST" id="routine-form">
+                <div class="hj-config-card">
+                    <div>
+                        <p style="margin:0; font-weight:800; color:#FF2D55;">🔥 이효재 모드 활성화</p>
+                        <p style="margin:5px 0 0 0; font-size:11px; color:#FF2D55; opacity:0.8;">모든 종목을 1세트씩 순환하며 진행합니다.</p>
+                    </div>
+                    <input type="checkbox" name="is_hj_mode" {% if routine.is_hj_mode %}checked{% endif %}>
+                </div>
+
+                <p class="input-label">루틴 이름</p>
+                <input type="text" name="routine_name" value="{{ routine.routine_name }}" required>
+                
+                <div id="exercise-list" style="margin-top: 20px;">
+                    {% for ex in exercises %}
+                    <div class="ex-card" id="card-{{ loop.index }}">
+                        <div class="ex-header">
+                            <span class="drag-handle">≡</span>
+                            
+                            <span class="ex-summary" id="sum-{{ loop.index }}" onclick="toggleCard('{{ loop.index }}')">{{ ex.name }}</span>
+                            
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span class="del-btn" onclick="removeCard(event, '{{ loop.index }}')">삭제</span>
+                                <span class="arrow-icon" id="arrow-{{ loop.index }}" onclick="toggleCard('{{ loop.index }}')">▼</span>
+                            </div>
+                        </div>
+                        
+                        <div class="ex-details" id="details-{{ loop.index }}">
+                            <div class="input-group">
+                                <input type="text" name="ex_name" id="name-{{ loop.index }}" placeholder=" " value="{{ ex.name }}" required oninput="updateSummary('{{ loop.index }}', this)">
+                                <label>운동 종목 명</label>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <div class="input-group">
+                                    <input type="number" name="ex_sets" value="{{ ex.sets }}" min="1" required>
+                                    <label>세트</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" name="ex_reps" value="{{ ex.reps }}" min="1" required>
+                                    <label>회수</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" name="ex_rest" value="{{ ex.rest_time }}" min="0" required>
+                                    <label>휴식</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" class="add-more-btn" onclick="addExerciseCard()">+ 종목 추가</button>
+                <button type="submit" style="margin-top: 30px;">수정 완료</button>
+                <button type="button" onclick="location.href='/main'" style="background: none; color: var(--text-secondary); font-weight: 400; font-size: 14px; width: 100%; border: none;">취소</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 초기 테마 적용
+        document.body.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+
+        let exCount = {{ exercises|length }};
+        const el = document.getElementById('exercise-list');
+        
+        // [수정] 드래그 로직 개선
+        new Sortable(el, {
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            handle: '.drag-handle', // [중요] 오직 '≡' 아이콘을 잡았을 때만 드래그 작동
+            onStart: function() {
+                // 드래그 시작 시 열려있는 상세창 모두 닫기 (깔끔한 이동을 위해)
+                document.querySelectorAll('.ex-details').forEach(d => d.classList.remove('active'));
+                document.querySelectorAll('.arrow-icon').forEach(a => a.classList.remove('active'));
+            }
+        });
+
+        function toggleCard(id) {
+            const details = document.getElementById(`details-${id}`);
+            const arrow = document.getElementById(`arrow-${id}`);
+            if(details) details.classList.toggle('active');
+            if(arrow) arrow.classList.toggle('active');
+        }
+
+        function updateSummary(id, input) {
+            const summary = document.getElementById(`sum-${id}`);
+            if(summary) summary.innerText = input.value || `운동 ${id}`;
+        }
+
+        function removeCard(event, id) {
+            event.stopPropagation();
+            if(confirm('이 종목을 삭제할까요?')) {
+                const card = document.getElementById(`card-${id}`);
+                if(card) card.remove();
+            }
+        }
+
+        function addExerciseCard() {
+            exCount++;
+            const list = document.getElementById('exercise-list');
+            const card = document.createElement('div');
+            card.className = 'ex-card';
+            card.id = `card-${exCount}`;
+            card.innerHTML = `
+                <div class="ex-header">
+                    <span class="drag-handle">≡</span>
+                    <span class="ex-summary" id="sum-${exCount}" onclick="toggleCard('${exCount}')">새 운동</span>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="del-btn" onclick="removeCard(event, '${exCount}')">삭제</span>
+                        <span class="arrow-icon" id="arrow-${exCount}" onclick="toggleCard('${exCount}')">▼</span>
+                    </div>
+                </div>
+                <div class="ex-details active" id="details-${exCount}">
+                    <div class="input-group">
+                        <input type="text" name="ex_name" placeholder=" " required oninput="updateSummary('${exCount}', this)">
+                        <label>운동 종목 명</label>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="input-group"><input type="number" name="ex_sets" min="1" required><label>세트</label></div>
+                        <div class="input-group"><input type="number" name="ex_reps" min="1" required><label>회수</label></div>
+                        <div class="input-group"><input type="number" name="ex_rest" min="0" required><label>휴식</label></div>
+                    </div>
+                </div>`;
+            list.appendChild(card);
+        }
+        
+        function sendHeartbeat() {
+            fetch('/update_status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 1 }) });
+        }
+        setInterval(sendHeartbeat, 3000);
+    </script>
+</body>
+</html>

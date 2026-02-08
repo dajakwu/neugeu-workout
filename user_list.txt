@@ -1,0 +1,4 @@
+=== 느그운동 유저 명단 ===
+김현준 | admin | admin
+조쫀쿠 | hyo | user
+재완 | 재완 | user

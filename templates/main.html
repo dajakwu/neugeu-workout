@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>느그운동 - 메인</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        /* 원본 디자인 유지 */
+        .main-content { display: flex; flex-direction: column; gap: 20px; padding: 10px; padding-bottom: 100px; }
+        
+        .friend-bar {
+            display: flex; overflow-x: auto; gap: 20px; padding: 15px 5px;
+            background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border-color);
+            -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+        }
+        .friend-bar::-webkit-scrollbar { height: 4px; }
+        .friend-bar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+
+        .profile-container { position: relative; display: inline-block; }
+        .status-dot {
+            position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; border: 2px solid var(--card-bg); border-radius: 50%; display: none;
+        }
+        .status-dot.online { background: #007AFF; display: block; }
+        .status-dot.workout { background: #34C759; display: block; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
+
+        .working-out-text { font-size: 10px; font-weight: 800; display: none; margin-top: 4px; }
+        .working-out-text.online { display: block; color: #007AFF; }
+        .working-out-text.workout { display: block; color: #34C759; }
+
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; }
+        .toast {
+            background: rgba(28, 28, 30, 0.95); color: #fff; padding: 12px 25px; border-radius: 30px;
+            font-size: 14px; font-weight: 600; margin-bottom: 10px; box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            animation: slideDown 0.5s ease-out, fadeOut 0.5s 2.5s forwards; white-space: nowrap;
+        }
+        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
+
+        .routine-card { background: var(--card-bg); border-radius: 24px; padding: 25px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box; margin-bottom: 15px; }
+        .welcome-section { padding: 10px 5px; text-align: left; position: relative; }
+        .profile-edit-link { display: inline-block; margin-top: 8px; font-size: 14px; color: var(--accent-color); text-decoration: none; font-weight: 600; }
+
+        .bottom-nav {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px; z-index: 1000;
+        }
+        .btn-calendar {
+            width: 100%; padding: 18px; background: var(--text-primary); color: var(--card-bg);
+            border-radius: 20px; font-size: 16px; font-weight: 700; border: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; text-align: center; display: block; text-decoration: none;
+        }
+
+        /* 다크모드 토글 버튼 스타일 */
+        .theme-toggle {
+            position: absolute; top: 10px; right: 5px; background: var(--border-color);
+            border: none; width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <button class="theme-switch" onclick="toggleTheme()" id="theme-btn">🌙</button>
+    <div class="container">
+        <div class="main-content">
+            <div class="friend-bar" id="friend-list-container"></div>
+
+            <div class="welcome-section">
+                <h2 style="font-size: 26px; font-weight: 800; line-height: 1.3; margin: 0;">
+                    <span style="color: var(--accent-color);">{{ session.nickname }}</span>님,<br>환영합니다! 🔥
+                </h2>
+                <a href="/edit_profile" class="profile-edit-link">내 정보 수정 〉</a>
+            </div>
+
+            <div class="routine-section">
+                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px; margin-left: 5px;">내 루틴</h3>
+                {% for routine in routines %}
+                <div class="routine-card">
+                    <span style="font-size: 20px; font-weight: 800; display: block; margin-bottom: 20px;">{{ routine.routine_name }}</span>
+                    <div class="btn-group" style="display: flex; flex-direction: column; gap: 10px;">
+                        <button onclick="location.href='/run_routine/{{ routine.id }}'" style="height: 60px; font-size: 18px;">운동 시작</button>
+                        <div class="btn-sub" style="display: flex; gap: 10px;">
+                            <a href="/edit_routine/{{ routine.id }}" class="edit-btn" style="flex: 1; background: var(--bg-color); color: var(--text-primary); text-align: center; line-height: 50px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px; border: 1px solid var(--border-color);">수정</a>
+                            <button onclick="if(confirm('삭제할까요?')) location.href='/delete_routine/{{ routine.id }}'" class="del-btn" style="flex: 1; background: #FFF0F0; color: #FF3B30; border-radius: 12px; font-weight: 600; border: none; height: 50px; font-size: 14px;">삭제</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                {% if routines|length < 5 %}
+                    <button onclick="location.href='/create_routine'" style="background-color: var(--border-color); color: var(--text-primary); width: 100%; margin-top: 10px; border: none; height: 50px; border-radius: 12px; font-weight: 600;">+ 루틴 추가</button>
+                {% endif %}
+            </div>
+
+            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                {% if session.get('role') == 'admin' %}
+                    <button onclick="location.href='/admin'" style="background-color: #5856D6; width: 100%; border: none; height: 50px; border-radius: 12px; color: white; font-weight: 600;">관리자 패널</button>
+                {% endif %}
+                <a href="/logout" style="text-align: center; color: var(--text-secondary); text-decoration: none; font-size: 14px; padding: 15px;">로그아웃</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bottom-nav">
+        <a href="/calendar" class="btn-calendar">📅 캘린더 / 기록 보기</a>
+    </div>
+
+<script>
+function applyTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            document.getElementById('theme-btn').innerHTML = theme === 'dark' ? '☀️' : '🌙';
+        }
+        function toggleTheme() {
+            const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+        }
+        applyTheme(localStorage.getItem('theme') || 'light');
+
+    // 초기 테마 로드
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    applyTheme(savedTheme);
+
+    // [2] 상태 관리 및 친구 목록 (원본 로직 보존)
+    function sendHeartbeat() {
+        fetch('/update_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 1 }) 
+        });
+    }
+
+    async function refreshFriends() {
+        try {
+            const response = await fetch('/get_friends_status');
+            if (response.status === 401) { window.location.href = '/'; return; }
+            
+            const data = await response.json();
+            const container = document.getElementById('friend-list-container');
+            if (!data.friends || !container) return;
+
+            data.friends.sort((a, b) => b.is_working_out - a.is_working_out);
+            
+            let newHtml = '';
+            data.friends.forEach(f => {
+                const isMe = f.user_id === "{{ session.user_id }}";
+                let statusClass = '', statusText = '오프라인', borderColor = 'var(--border-color)';
+
+                if (f.is_working_out === 2) {
+                    statusClass = 'workout'; statusText = '운동 중'; borderColor = '#34C759';
+                    const key = `notified_${f.user_id}`;
+                    if (!sessionStorage.getItem(key) && !isMe) {
+                        showToast(`${f.nickname}님이 운동을 시작했습니다! 🔥`);
+                        sessionStorage.setItem(key, 'true');
+                    }
+                } else if (f.is_working_out === 1) {
+                    statusClass = 'online'; statusText = '접속 중'; borderColor = '#007AFF';
+                    sessionStorage.removeItem(`notified_${f.user_id}`);
+                }
+
+                newHtml += `
+                    <div class="friend-item" style="min-width: 80px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;">
+                        <div class="profile-container">
+                            ${f.profile_img 
+                                ? `<img src="/static/profiles/${f.profile_img}" style="width:55px; height:55px; border-radius:50%; object-fit:cover; border:2px solid ${borderColor};">`
+                                : `<div style="width:55px; height:55px; border-radius:50%; background:var(--bg-color); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700; border:2px solid ${borderColor};">${f.nickname[0]}</div>`
+                            }
+                            <div class="status-dot ${statusClass}"></div>
+                        </div>
+                        <span style="margin-top:8px; font-size:11px; font-weight:600; color:var(--text-primary);">${f.nickname}${isMe ? ' (나)' : ''}</span>
+                        <span class="working-out-text ${statusClass}">${statusText}</span>
+                    </div>`;
+            });
+            container.innerHTML = newHtml;
+        } catch (e) { console.error(e); }
+    }
+
+    function showToast(msg) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast'; toast.innerText = msg;
+        container.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
+    }
+
+    sendHeartbeat();
+    refreshFriends();
+    setInterval(() => { sendHeartbeat(); refreshFriends(); }, 3000);
+
+    window.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') navigator.sendBeacon('/update_status', JSON.stringify({ status: 0 }));
+    });
+</script>
+</body>
+</html>

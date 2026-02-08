@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>느그운동</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+    <div class="container">
+        <div class="login-box">
+            <h1>느그운동</h1>
+            <form method="POST" style="margin-top: 30px;">
+                <input type="text" name="user_id" placeholder="아이디" required autocomplete="off">
+                <input type="password" name="password" placeholder="비밀번호" required>
+                {% if error %}<p class="error-msg">{{ error }}</p>{% endif %}
+                <div style="display: flex; align-items: center; margin: 10px 5px; cursor: pointer;">
+        <input type="checkbox" name="remember_me" id="remember" style="width: 18px; height: 18px; margin-right: 8px;">
+        <label for="remember" style="font-size: 14px; color: var(--text-secondary); user-select: none;">자동 로그인</label>
+    </div>
+                <button type="submit">로그인</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

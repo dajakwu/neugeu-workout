@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 패널 - 느그운동</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/static/manifest.json">
+</head>
+<body>
+    <div class="container">
+        <div class="login-box">
+            <h2>사용자 관리</h2>
+            
+            <form action="/create_user" method="POST" style="margin-bottom: 30px;">
+                <div class="input-group">
+                    <label class="input-label-fixed">아이디</label>
+                    <input type="text" name="new_id" required>
+                </div>
+                <div class="input-group">
+                    <label class="input-label-fixed">비밀번호</label>
+                    <input type="text" name="new_pw" required>
+                </div>
+                <div class="input-group">
+                    <label class="input-label-fixed">닉네임</label>
+                    <input type="text" name="new_nickname" required>
+                </div>
+                <button type="submit">새 계정 생성</button>
+            </form>
+
+            <hr style="border: 0; border-top: 1px solid #E5E5EA; margin: 20px 0;">
+
+            <h3 style="margin-bottom: 15px;">회원 목록 관리</h3>
+            {% for user in users %}
+            <div class="user-card">
+                <div class="user-header" onclick="toggleUser('{{ user.user_id }}')">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="profile-circle" style="width: 30px; height: 30px; font-size: 12px;">
+                            {{ user.nickname[0] }}
+                        </div>
+                        <span style="font-weight: 700;">{{ user.nickname }}</span>
+                    </div>
+                    <span id="arrow-{{ user.user_id }}" style="color: #8E8E93;">▼</span>
+                </div>
+
+                <div class="user-details" id="details-{{ user.user_id }}">
+                    <form action="/update_user" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="target_id" value="{{ user.user_id }}">
+                        
+                        <div class="input-group">
+                            <label class="input-label-fixed">프로필 사진</label>
+                            <input type="file" name="profile_img" accept="image/*">
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label-fixed">닉네임</label>
+                            <input type="text" name="new_nickname" value="{{ user.nickname }}" required>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="input-label-fixed">비밀번호 (관리용)</label>
+                            <input type="text" name="new_pw" value="{{ user.raw_password if user.raw_password else '' }}" required>
+                        </div>
+
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" style="flex: 2;">저장</button>
+                            {% if user.user_id != 'admin' %}
+                            <button type="button" onclick="if(confirm('삭제할까요?')) location.href='/delete_user/{{ user.user_id }}'" 
+                                    style="flex: 1; background: #FFF0F0; color: #FF3B30;">삭제</button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+
+            <button onclick="location.href='/main'" style="background: none; color: #8E8E93; margin-top: 20px;">메인으로 돌아가기</button>
+        </div>
+    </div>
+
+    <script>
+        function toggleUser(id) {
+            const details = document.getElementById(`details-${id}`);
+            const arrow = document.getElementById(`arrow-${id}`);
+            const isActive = details.classList.contains('active');
+            
+            // 다른 카드 닫기 (선택 사항)
+            document.querySelectorAll('.user-details').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('[id^="arrow-"]').forEach(el => el.innerText = '▼');
+
+            if (!isActive) {
+                details.classList.add('active');
+                arrow.innerText = '▲';
+            }
+        }
+    </script>
+</body>
+</html>
