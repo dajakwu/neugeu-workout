@@ -62,7 +62,7 @@
     </style>
 </head>
 <body>
-    <div id="toast-container"></div>
+<div id="toast-container"></div>
     <button class="theme-switch" onclick="toggleTheme()" id="theme-btn">🌙</button>
     <div class="container">
         <div class="main-content">
@@ -72,7 +72,7 @@
                 <h2 style="font-size: 26px; font-weight: 800; line-height: 1.3; margin: 0;">
                     <span style="color: var(--accent-color);">{{ session.nickname }}</span>님,<br>환영합니다! 🔥
                 </h2>
-                <a href="/edit_profile" class="profile-edit-link">내 정보 수정 〉</a>
+                <a href="/profile" class="profile-edit-link">내 정보 수정 〉</a>
             </div>
 
             <div class="routine-section">
@@ -84,14 +84,20 @@
                         <button onclick="location.href='/run_routine/{{ routine.id }}'" style="height: 60px; font-size: 18px;">운동 시작</button>
                         <div class="btn-sub" style="display: flex; gap: 10px;">
                             <a href="/edit_routine/{{ routine.id }}" class="edit-btn" style="flex: 1; background: var(--bg-color); color: var(--text-primary); text-align: center; line-height: 50px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px; border: 1px solid var(--border-color);">수정</a>
-                            <button onclick="if(confirm('삭제할까요?')) location.href='/delete_routine/{{ routine.id }}'" class="del-btn" style="flex: 1; background: #FFF0F0; color: #FF3B30; border-radius: 12px; font-weight: 600; border: none; height: 50px; font-size: 14px;">삭제</button>
+                            
+                            <form action="/delete_routine/{{ routine.id }}" method="POST" style="flex: 1;" onsubmit="return confirm('삭제할까요?')">
+                                <button type="submit" class="del-btn" style="width: 100%; background: #FFF0F0; color: #FF3B30; border-radius: 12px; font-weight: 600; border: none; height: 50px; font-size: 14px;">삭제</button>
+                            </form>
                         </div>
                     </div>
                 </div>
                 {% endfor %}
                 
                 {% if routines|length < 5 %}
-                    <button onclick="location.href='/create_routine'" style="background-color: var(--border-color); color: var(--text-primary); width: 100%; margin-top: 10px; border: none; height: 50px; border-radius: 12px; font-weight: 600;">+ 루틴 추가</button>
+                    <form action="/add_routine" method="POST" style="margin-top: 10px;">
+                        <input type="hidden" name="routine_name" value="새 루틴">
+                        <button type="submit" style="background-color: var(--border-color); color: var(--text-primary); width: 100%; border: none; height: 50px; border-radius: 12px; font-weight: 600;">+ 루틴 추가</button>
+                    </form>
                 {% endif %}
             </div>
 
