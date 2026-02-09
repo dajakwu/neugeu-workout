@@ -5,10 +5,9 @@ import hashlib
 import os
 import time
 from datetime import datetime
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here' 
+app.secret_key = 'your_secret_key_here'
 app.permanent_session_lifetime = timedelta(days=30)
 
 UPLOAD_FOLDER = 'static/profiles'
@@ -42,6 +41,7 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, routine_id INTEGER, name TEXT NOT NULL, 
         sets INTEGER, reps INTEGER, rest_time INTEGER, FOREIGN KEY (routine_id) REFERENCES routines (id)
     )''')
+    # 관리자 계정 초기 생성
     try:
         admin_pw = hashlib.sha256("1234".encode()).hexdigest()
         c.execute("INSERT OR IGNORE INTO users (user_id, password, nickname, role) VALUES (?, ?, ?, ?)", 
@@ -80,9 +80,8 @@ def main_dashboard():
     conn = get_db_connection()
     routines = conn.execute('SELECT * FROM routines WHERE user_id = ?', (session['user_id'],)).fetchall()
     conn.close()
-    return render_template('main.html', routines=routines)
+    return render_template('main.html', routines=routines, session=session)
 
-# [수리] 루틴 추가: GET/POST 모두 대응하여 404 방지
 @app.route('/add_routine', methods=['GET', 'POST'])
 def add_routine():
     if 'user_id' not in session: return redirect(url_for('login'))
@@ -91,19 +90,16 @@ def add_routine():
         conn = get_db_connection()
         conn.execute('INSERT INTO routines (user_id, routine_name, is_hj_mode) VALUES (?, ?, 0)', 
                      (session['user_id'], routine_name))
-        conn.commit()
-        conn.close()
+        conn.commit(); conn.close()
     return redirect(url_for('main_dashboard'))
 
-# [수리] 루틴 삭제: GET/POST 모두 허용하여 405(Method Not Allowed) 원천 차단
-@app.route('/delete_routine/<int:routine_id>', methods=['GET', 'POST'])
+@app.route('/delete_routine/<int:routine_id>')
 def delete_routine(routine_id):
     if 'user_id' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
     conn.execute('DELETE FROM exercises WHERE routine_id = ?', (routine_id,))
     conn.execute('DELETE FROM routines WHERE id = ? AND user_id = ?', (routine_id, session['user_id']))
-    conn.commit()
-    conn.close()
+    conn.commit(); conn.close()
     return redirect(url_for('main_dashboard'))
 
 @app.route('/edit_routine/<int:routine_id>', methods=['GET', 'POST'])
@@ -124,7 +120,6 @@ def edit_routine(routine_id):
         conn.commit(); conn.close()
         return redirect(url_for('main_dashboard'))
     routine = conn.execute('SELECT * FROM routines WHERE id = ? AND user_id = ?', (routine_id, session['user_id'])).fetchone()
-    if not routine: conn.close(); return redirect(url_for('main_dashboard'))
     exercises = conn.execute('SELECT * FROM exercises WHERE routine_id = ?', (routine_id,)).fetchall()
     conn.close()
     return render_template('edit_routine.html', routine=routine, exercises=exercises)
@@ -134,14 +129,11 @@ def run_routine(routine_id):
     if 'user_id' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
     routine = conn.execute('SELECT * FROM routines WHERE id = ?', (routine_id,)).fetchone()
-    
-    # [핵심 수정] DB에서 가져온 데이터를 '딕셔너리(dict)' 형태로 명확하게 변환해서 보냄
-    # 이렇게 안 하면 자바스크립트가 데이터를 못 읽어서 멈춥니다.
     exercises_rows = conn.execute('SELECT * FROM exercises WHERE routine_id = ?', (routine_id,)).fetchall()
     exercises_list = [dict(row) for row in exercises_rows] 
-    
     conn.close()
     return render_template('run_routine.html', routine=routine, exercises=exercises_list)
+
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
     if 'user_id' not in session: return redirect(url_for('login'))
@@ -151,20 +143,29 @@ def profile():
         new_id = request.form.get('new_id')
         new_nickname = request.form.get('nickname')
         old_id = session['user_id']
-
-        # 아이디가 바뀌는 경우 관련 테이블 모두 업데이트 (외래키 참조 무결성 유지)
-        if new_id and new_id != old_id:
-            conn.execute('UPDATE users SET user_id = ? WHERE user_id = ?', (new_id, old_id))
-            conn.execute('UPDATE routines SET user_id = ? WHERE user_id = ?', (new_id, old_id))
-            conn.execute('UPDATE history SET user_id = ? WHERE user_id = ?', (new_id, old_id))
-            session['user_id'] = new_id  # 세션 정보 갱신
         
+        if new_id and new_id != old_id:
+            try:
+                conn.execute('UPDATE users SET user_id = ? WHERE user_id = ?', (new_id, old_id))
+                conn.execute('UPDATE routines SET user_id = ? WHERE user_id = ?', (new_id, old_id))
+                conn.execute('UPDATE history SET user_id = ? WHERE user_id = ?', (new_id, old_id))
+                session['user_id'] = new_id
+            except: pass
+
         if new_nickname:
-            conn.execute('UPDATE users SET nickname = ? WHERE user_id = ?', (new_nickname, session.get('user_id')))
+            conn.execute('UPDATE users SET nickname = ? WHERE user_id = ?', (new_nickname, session['user_id']))
             session['nickname'] = new_nickname
             
-        conn.commit()
-        conn.close()
+        if 'profile_img' in request.files:
+            file = request.files['profile_img']
+            if file.filename != '':
+                ext = os.path.splitext(file.filename)[1]
+                filename = f"{session['user_id']}_{int(time.time())}{ext}"
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                conn.execute('UPDATE users SET profile_img = ? WHERE user_id = ?', (filename, session['user_id']))
+                session['profile_img'] = filename
+        
+        conn.commit(); conn.close()
         return redirect(url_for('main_dashboard'))
 
     user = conn.execute('SELECT * FROM users WHERE user_id = ?', (session['user_id'],)).fetchone()
@@ -173,19 +174,70 @@ def profile():
 
 @app.route('/calendar')
 def calendar_page():
-    if 'user_id' not in session: return redirect(url_for('login'))
     return render_template('calendar.html')
 
-# ================= API 및 기타 =================
+# ================= 관리자 기능 =================
 
-@app.route('/api/get_history/<year>/<month>')
-def get_history(year, month):
-    if 'user_id' not in session: return jsonify([])
-    search_date = f"{year}-{str(month).zfill(2)}-%"
+@app.route('/admin')
+def admin_panel():
+    if 'user_id' not in session or session.get('role') != 'admin': return redirect(url_for('main_dashboard'))
     conn = get_db_connection()
-    records = conn.execute('SELECT date FROM history WHERE user_id = ? AND date LIKE ?', (session['user_id'], search_date)).fetchall()
+    users = conn.execute('SELECT * FROM users').fetchall()
     conn.close()
-    return jsonify([row['date'] for row in records])
+    return render_template('admin.html', users=users)
+
+@app.route('/admin/create_user', methods=['POST'])
+def admin_create_user():
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    new_id = request.form['new_id']
+    new_pw = hashlib.sha256(request.form['new_pw'].encode()).hexdigest()
+    new_nick = request.form['new_nickname']
+    
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT INTO users (user_id, password, nickname, role) VALUES (?, ?, ?, 'user')", 
+                     (new_id, new_pw, new_nick))
+        conn.commit()
+    except: pass
+    conn.close()
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/update_user', methods=['POST'])
+def admin_update_user():
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    target_id = request.form['target_id']
+    new_nick = request.form['new_nickname']
+    new_pw = request.form.get('new_pw')
+    
+    conn = get_db_connection()
+    conn.execute("UPDATE users SET nickname = ? WHERE user_id = ?", (new_nick, target_id))
+    
+    if new_pw and new_pw.strip():
+        hashed_pw = hashlib.sha256(new_pw.encode()).hexdigest()
+        conn.execute("UPDATE users SET password = ? WHERE user_id = ?", (hashed_pw, target_id))
+        
+    if 'profile_img' in request.files:
+        file = request.files['profile_img']
+        if file.filename != '':
+            ext = os.path.splitext(file.filename)[1]
+            filename = f"{target_id}_{int(time.time())}{ext}"
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            conn.execute('UPDATE users SET profile_img = ? WHERE user_id = ?', (filename, target_id))
+            
+    conn.commit(); conn.close()
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/delete_user/<user_id>')
+def admin_delete_user(user_id):
+    if session.get('role') != 'admin': return redirect(url_for('login'))
+    conn = get_db_connection()
+    conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM routines WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM history WHERE user_id = ?", (user_id,))
+    conn.commit(); conn.close()
+    return redirect(url_for('admin_panel'))
+
+# ================= API =================
 
 @app.route('/api/record_workout_done', methods=['POST'])
 def record_workout_done():
@@ -201,7 +253,8 @@ def record_workout_done():
 @app.route('/update_status', methods=['POST'])
 def update_status():
     if 'user_id' not in session: return "Unauthorized", 401
-    status = request.json.get('status', 0)
+    data = request.json
+    status = data.get('status', 1) # 기본값 1(접속중)
     user_last_pulse[session['user_id']] = time.time()
     conn = get_db_connection()
     conn.execute('UPDATE users SET is_working_out = ? WHERE user_id = ?', (status, session['user_id']))
@@ -214,21 +267,25 @@ def get_friends_status():
     conn = get_db_connection()
     friends_raw = conn.execute('SELECT user_id, nickname, profile_img, is_working_out FROM users').fetchall()
     conn.close()
+    
     current_time = time.time()
     friend_list = []
+    
     for f in friends_raw:
         f_dict = dict(f)
-        if current_time - user_last_pulse.get(f_dict['user_id'], 0) > 7: f_dict['is_working_out'] = 0
+        last_seen = user_last_pulse.get(f_dict['user_id'], 0)
+        
+        # 5초 이상 응답 없으면 오프라인
+        if current_time - last_seen > 5: 
+            f_dict['is_working_out'] = 0
+            
+        # [핵심] 프로필 이미지 캐시 방지 (v=timestamp 추가)
+        if f_dict['profile_img']:
+            f_dict['profile_img'] = f"/static/profiles/{f_dict['profile_img']}?v={int(current_time)}"
+        
         friend_list.append(f_dict)
+        
     return jsonify({"friends": friend_list})
-
-@app.route('/admin')
-def admin_panel():
-    if 'user_id' not in session or session.get('role') != 'admin': return redirect(url_for('main_dashboard'))
-    conn = get_db_connection()
-    users = conn.execute('SELECT * FROM users').fetchall()
-    conn.close()
-    return render_template('admin.html', users=users)
 
 @app.route('/logout')
 def logout():

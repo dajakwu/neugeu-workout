@@ -151,7 +151,7 @@
         const exercises = JSON.parse(dataElement.textContent);
         const isHjMode = document.getElementById("is-hj").value == "1";
         
-        // [수정] 오디오 컨텍스트를 전역으로 선언하되, 사용자 상호작용 후 활성화
+        // 오디오 컨텍스트 (사용자 동작 후 활성화)
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
 
@@ -161,10 +161,11 @@
         let timeLeft = 0;
         let totalTime = 0;
         let isPaused = false;
+        let lastSecond = 0; // 1초마다 소리 내기 위한 변수
         const CIRCUMFERENCE = 691;
 
-        // 2. 사운드 재생 함수 (Web Audio API)
-        function playBeep(freq, duration, volume = 0.1) {
+        // [수리 1] 사운드 함수 강화: 볼륨 조절 기능 추가 (기본 1.0 = 최대)
+        function playBeep(freq, duration, volume = 1.0) {
             try {
                 if (!audioCtx) audioCtx = new AudioContext();
                 if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -174,6 +175,8 @@
 
                 osc.type = "sine";
                 osc.frequency.value = freq;
+                
+                // 볼륨 설정 (클리핑 방지를 위해 부드럽게 감소)
                 gain.gain.setValueAtTime(volume, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
 
@@ -187,7 +190,23 @@
             }
         }
 
-        // 3. 플레이리스트 생성 (이효재 모드 / 일반 모드 분기)
+        // [수리 2] 상태 전송 함수 (운동 중 = 2)
+        function sendStatus(status) {
+            if(navigator.sendBeacon) {
+                const data = JSON.stringify({ status: status });
+                const blob = new Blob([data], {type: 'application/json'});
+                navigator.sendBeacon("/update_status", blob);
+            } else {
+                fetch("/update_status", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: status }),
+                    keepalive: true
+                });
+            }
+        }
+
+        // 3. 플레이리스트 생성
         if (isHjMode) {
             document.getElementById("hj-mode-banner").style.display = "block";
             let maxSets = 0;
@@ -212,9 +231,12 @@
                 alert("운동 데이터가 없습니다.");
                 location.href = "/main";
             }
+            
+            // [중요] 페이지 들어오자마자 '운동 중(2)' 상태 알림 시작
+            sendStatus(2);
+            setInterval(() => sendStatus(2), 3000); // 3초마다 생존 신고
         };
 
-        // 5. 타이머 링 업데이트 함수
         function updateRing(id, current, total) {
             const circle = document.getElementById(id);
             if (!circle) return;
@@ -222,7 +244,7 @@
             circle.style.strokeDashoffset = offset;
         }
 
-        // 6. 준비 단계 시작 (카운트다운 사운드 포함)
+        // 5. 준비 단계 (틱톡 소리 추가)
         function startPrep() {
             clearInterval(timerInterval);
             document.getElementById("prep-area").classList.remove("hidden");
@@ -231,6 +253,7 @@
             
             let prepTime = 10;
             timeLeft = prepTime;
+            lastSecond = Math.ceil(timeLeft);
             updateRing("prep-bar", timeLeft, prepTime);
             
             timerInterval = setInterval(() => {
@@ -239,28 +262,32 @@
                 document.getElementById("prep-count").innerText = displayTime;
                 updateRing("prep-bar", timeLeft, prepTime);
                 
-                // 3, 2, 1초 알림음 (정확한 초 단위에서 발생하도록 반올림 체크)
+                // [수리 3] 1초마다 틱 소리 (800Hz, 짧게, 중간 볼륨)
+                if (displayTime < lastSecond) {
+                    playBeep(800, 0.05, 0.3); 
+                    lastSecond = displayTime;
+                }
+
+                // 3초 전 카운트다운
                 if (Math.abs(timeLeft - Math.floor(timeLeft)) < 0.05 && displayTime <= 3 && displayTime > 0) {
-                    playBeep(440, 0.1);
+                    playBeep(440, 0.1, 0.5);
                 }
 
                 if (timeLeft <= 0) {
-                    playBeep(880, 0.3); // 시작 신호음
+                    playBeep(1200, 0.4, 1.0); // 시작 팡파레 (크게)
                     skipPrep();
                 }
             }, 100);
         }
 
         function skipPrep() {
-            // 사용자 클릭 시 오디오 엔진 깨우기 (브라우저 정책 대응)
             if (!audioCtx) audioCtx = new AudioContext();
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             clearInterval(timerInterval);
             showWorkout();
         }
 
-        // 7. 운동 화면 표시 (UI 최적화)
+        // 6. 운동 화면 표시
         function showWorkout() {
             document.getElementById("prep-area").classList.add("hidden");
             document.getElementById("timer-area").classList.add("hidden");
@@ -271,6 +298,9 @@
             document.getElementById("set-info").innerText = `${cur.currentSet} / ${cur.totalSets} SET`;
             document.getElementById("reps-info").innerText = `${cur.reps}회 수행`;
             
+            // 화면 바뀔 때도 운동 중 상태 전송
+            sendStatus(2);
+
             const btn = document.getElementById("done-btn");
             if (currentIndex >= playList.length - 1) {
                 btn.innerText = "운동 종료 (결과 저장)";
@@ -281,9 +311,8 @@
             }
         }
 
-        // 8. 세트 완료 처리
         function finishSet() {
-            playBeep(660, 0.1); // 버튼 클릭 피드백음
+            playBeep(600, 0.1, 0.5); // 버튼 클릭음
             if (currentIndex >= playList.length - 1) {
                 finishWorkoutSession();
                 return;
@@ -293,7 +322,7 @@
             startRest(restTime);
         }
 
-        // 9. 휴식 타이머 (3초 예보음 포함)
+        // 7. 휴식 타이머 (틱톡 + 종료 알림 강화)
         function startRest(duration) {
             clearInterval(timerInterval);
             document.getElementById("workout-area").classList.add("hidden");
@@ -301,6 +330,7 @@
             
             timeLeft = duration;
             totalTime = duration;
+            lastSecond = Math.ceil(timeLeft);
             isPaused = false;
             document.getElementById("pause-btn").innerText = "일시정지";
             document.getElementById("timer-count").innerText = timeLeft;
@@ -313,13 +343,19 @@
                     document.getElementById("timer-count").innerText = displayTime;
                     updateRing("rest-bar", timeLeft, totalTime);
 
-                    // 휴식 종료 3, 2, 1초 전 알림
+                    // [수리 3] 1초마다 틱 소리
+                    if (displayTime < lastSecond) {
+                        playBeep(800, 0.05, 0.3);
+                        lastSecond = displayTime;
+                    }
+
+                    // 3초 전 예비 알림 (점점 크게)
                     if (Math.abs(timeLeft - Math.floor(timeLeft)) < 0.05 && displayTime <= 3 && displayTime > 0) {
-                        playBeep(440, 0.05);
+                        playBeep(440, 0.1, 0.8);
                     }
 
                     if (timeLeft <= 0) {
-                        playBeep(880, 0.3, 0.15); // 운동 재개 신호음
+                        playBeep(1500, 0.6, 1.0); // [수리 4] 휴식 끝! 아주 크고 길게 (1.0)
                         skipRest();
                     }
                 }
@@ -329,7 +365,6 @@
         function pauseTimer() {
             isPaused = !isPaused;
             document.getElementById("pause-btn").innerText = isPaused ? "재개" : "일시정지";
-            // 일시정지 해제 시에도 오디오 재개 시도
             if (!isPaused && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         }
 
@@ -338,13 +373,18 @@
             showWorkout();
         }
 
-        // 10. 세션 종료 처리
         function finishWorkoutSession() {
-            playBeep(1200, 0.5, 0.2); // 최종 완료 환호음 성격
+            playBeep(1000, 0.5, 1.0); // 종료음
+            sendStatus(1); // 운동 끝났으니 '접속 중'으로 변경
             fetch("/api/record_workout_done", { method: "POST" });
             document.getElementById("workout-area").classList.add("hidden");
             document.getElementById("finish-overlay").classList.remove("hidden");
         }
+        
+        // 창 닫거나 나갈 때 오프라인(0) 처리
+        window.addEventListener("beforeunload", () => {
+             sendStatus(0);
+        });
     </script>
 </body>
 </html>

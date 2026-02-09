@@ -115,91 +115,127 @@
     </div>
 
 <script>
-function applyTheme(theme) {
+        // 1. 테마 적용 로직
+        function applyTheme(theme) {
             document.body.setAttribute('data-theme', theme);
             localStorage.setItem('theme', theme);
-            document.getElementById('theme-btn').innerHTML = theme === 'dark' ? '☀️' : '🌙';
+            const btn = document.getElementById('theme-btn');
+            if(btn) btn.innerHTML = theme === 'dark' ? '☀️' : '🌙';
         }
         function toggleTheme() {
             const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             applyTheme(next);
         }
+        // 초기 로드
         applyTheme(localStorage.getItem('theme') || 'light');
 
-    // 초기 테마 로드
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    applyTheme(savedTheme);
+        // 2. 상태 관리 및 친구 목록 (자동 갱신)
+        async function refreshFriends() {
+            try {
+                const response = await fetch('/get_friends_status');
+                if (response.status === 401) { window.location.href = '/'; return; }
+                
+                const data = await response.json();
+                const container = document.getElementById('friend-list-container');
+                if (!data.friends || !container) return;
 
-    // [2] 상태 관리 및 친구 목록 (원본 로직 보존)
-    function sendHeartbeat() {
-        fetch('/update_status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 1 }) 
-        });
-    }
+                // 운동 중인 사람을 앞으로 정렬
+                data.friends.sort((a, b) => b.is_working_out - a.is_working_out);
+                
+                let newHtml = '';
+                data.friends.forEach(f => {
+                    const isMe = f.user_id === "{{ session.user_id }}";
+                    let statusClass = '', statusIcon = '', borderColor = 'transparent';
 
-    async function refreshFriends() {
-        try {
-            const response = await fetch('/get_friends_status');
-            if (response.status === 401) { window.location.href = '/'; return; }
-            
-            const data = await response.json();
-            const container = document.getElementById('friend-list-container');
-            if (!data.friends || !container) return;
-
-            data.friends.sort((a, b) => b.is_working_out - a.is_working_out);
-            
-            let newHtml = '';
-            data.friends.forEach(f => {
-                const isMe = f.user_id === "{{ session.user_id }}";
-                let statusClass = '', statusText = '오프라인', borderColor = 'var(--border-color)';
-
-                if (f.is_working_out === 2) {
-                    statusClass = 'workout'; statusText = '운동 중'; borderColor = '#34C759';
-                    const key = `notified_${f.user_id}`;
-                    if (!sessionStorage.getItem(key) && !isMe) {
-                        showToast(`${f.nickname}님이 운동을 시작했습니다! 🔥`);
-                        sessionStorage.setItem(key, 'true');
+                    // 상태 판별 로직 (2:운동중, 1:접속중, 0:오프라인)
+                    if (f.is_working_out === 2) {
+                        statusClass = 'workout'; 
+                        statusIcon = '<span class="status-badge">🔥</span>'; 
+                        borderColor = '#FF2D55'; // 빨강
+                        
+                        // 알림 로직
+                        const key = `notified_${f.user_id}`;
+                        if (!sessionStorage.getItem(key) && !isMe) {
+                            showToast(`${f.nickname}님이 운동을 시작했습니다! 🔥`);
+                            sessionStorage.setItem(key, 'true');
+                        }
+                    } else if (f.is_working_out === 1) {
+                        statusClass = 'online'; 
+                        statusIcon = '<span class="status-badge">🟢</span>';
+                        borderColor = '#34C759'; // 초록
+                        sessionStorage.removeItem(`notified_${f.user_id}`);
+                    } else {
+                         borderColor = 'var(--border-color)'; // 기본 회색
                     }
-                } else if (f.is_working_out === 1) {
-                    statusClass = 'online'; statusText = '접속 중'; borderColor = '#007AFF';
-                    sessionStorage.removeItem(`notified_${f.user_id}`);
-                }
 
-                newHtml += `
-                    <div class="friend-item" style="min-width: 80px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;">
-                        <div class="profile-container">
-                            ${f.profile_img 
-                                ? `<img src="/static/profiles/${f.profile_img}" style="width:55px; height:55px; border-radius:50%; object-fit:cover; border:2px solid ${borderColor};">`
-                                : `<div style="width:55px; height:55px; border-radius:50%; background:var(--bg-color); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700; border:2px solid ${borderColor};">${f.nickname[0]}</div>`
-                            }
-                            <div class="status-dot ${statusClass}"></div>
-                        </div>
-                        <span style="margin-top:8px; font-size:11px; font-weight:600; color:var(--text-primary);">${f.nickname}${isMe ? ' (나)' : ''}</span>
-                        <span class="working-out-text ${statusClass}">${statusText}</span>
-                    </div>`;
-            });
-            container.innerHTML = newHtml;
-        } catch (e) { console.error(e); }
-    }
+                    // [중요] 이미지 캐시 방지를 위해 서버가 보내준 URL 그대로 사용
+                    // (서버에서 이미 ?v=시간 을 붙여서 보내줌)
+                    const imgTag = f.profile_img 
+                        ? `<img src="${f.profile_img}" style="width:55px; height:55px; border-radius:50%; object-fit:cover; border:3px solid ${borderColor};">`
+                        : `<div style="width:55px; height:55px; border-radius:50%; background:var(--bg-color); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700; border:3px solid ${borderColor};">${f.nickname[0]}</div>`;
 
-    function showToast(msg) {
-        const container = document.getElementById('toast-container');
-        if (!container) return;
-        const toast = document.createElement('div');
-        toast.className = 'toast'; toast.innerText = msg;
-        container.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
-    }
+                    newHtml += `
+                        <div class="friend-item" style="min-width: 70px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; margin-right: 15px; position: relative;">
+                            <div class="profile-container" style="position: relative;">
+                                ${imgTag}
+                                ${statusIcon}
+                            </div>
+                            <span style="margin-top:8px; font-size:12px; font-weight:600; color:var(--text-primary); text-align:center; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.nickname}</span>
+                        </div>`;
+                });
+                container.innerHTML = newHtml;
+            } catch (e) { console.error(e); }
+        }
 
-    sendHeartbeat();
-    refreshFriends();
-    setInterval(() => { sendHeartbeat(); refreshFriends(); }, 3000);
+        // 3. 내 상태 전송 (접속 유지)
+        function sendHeartbeat() {
+            if(navigator.sendBeacon) {
+                const data = JSON.stringify({ status: 1 });
+                const blob = new Blob([data], {type: 'application/json'});
+                navigator.sendBeacon("/update_status", blob);
+            } else {
+                fetch('/update_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 1 }) 
+                });
+            }
+        }
 
-    window.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden') navigator.sendBeacon('/update_status', JSON.stringify({ status: 0 }));
-    });
-</script>
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            if (!container) {
+                const newContainer = document.createElement('div');
+                newContainer.id = 'toast-container';
+                newContainer.style.cssText = "position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000;";
+                document.body.appendChild(newContainer);
+                return showToast(msg);
+            }
+            const toast = document.createElement('div');
+            toast.className = 'toast'; 
+            toast.innerText = msg;
+            toast.style.cssText = "background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 20px; margin-bottom: 10px; animation: fadeIn 0.3s;";
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // 3초마다 갱신
+        sendHeartbeat();
+        refreshFriends();
+        setInterval(() => { sendHeartbeat(); refreshFriends(); }, 3000);
+
+        // 페이지 나갈 때 오프라인 처리
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                const data = JSON.stringify({ status: 0 });
+                const blob = new Blob([data], {type: 'application/json'});
+                navigator.sendBeacon('/update_status', blob);
+            }
+        });
+    </script>
+    <style>
+        .status-badge { position: absolute; bottom: 0; right: 0; font-size: 16px; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
 </body>
 </html>
