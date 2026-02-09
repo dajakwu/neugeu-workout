@@ -52,7 +52,7 @@ def init_db():
 
 init_db()
 
-# [수리] 접속 유지를 위한 전역 감지기
+# [중요] 접속 유지를 위한 전역 감지기
 @app.before_request
 def update_last_seen():
     if 'user_id' in session:
@@ -99,7 +99,7 @@ def add_routine():
         conn.commit(); conn.close()
     return redirect(url_for('main_dashboard'))
 
-@app.route('/delete_routine/<int:routine_id>')
+@app.route('/delete_routine/<int:routine_id>', methods=['GET', 'POST']) # [수리] POST 메서드 명시 (삭제 버튼 폼 전송용)
 def delete_routine(routine_id):
     if 'user_id' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
@@ -144,10 +144,12 @@ def run_routine(routine_id):
 def profile():
     if 'user_id' not in session: return redirect(url_for('login'))
     conn = get_db_connection()
+    
     if request.method == 'POST':
         new_id = request.form.get('new_id')
         new_nickname = request.form.get('nickname')
         old_id = session['user_id']
+        
         if new_id and new_id != old_id:
             try:
                 conn.execute('UPDATE users SET user_id = ? WHERE user_id = ?', (new_id, old_id))
@@ -155,9 +157,11 @@ def profile():
                 conn.execute('UPDATE history SET user_id = ? WHERE user_id = ?', (new_id, old_id))
                 session['user_id'] = new_id
             except: pass
+
         if new_nickname:
             conn.execute('UPDATE users SET nickname = ? WHERE user_id = ?', (new_nickname, session['user_id']))
             session['nickname'] = new_nickname
+            
         if 'profile_img' in request.files:
             file = request.files['profile_img']
             if file.filename != '':
@@ -166,8 +170,10 @@ def profile():
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
                 conn.execute('UPDATE users SET profile_img = ? WHERE user_id = ?', (filename, session['user_id']))
                 session['profile_img'] = filename
+        
         conn.commit(); conn.close()
         return redirect(url_for('main_dashboard'))
+
     user = conn.execute('SELECT * FROM users WHERE user_id = ?', (session['user_id'],)).fetchone()
     conn.close()
     return render_template('profile.html', user=user)
@@ -190,7 +196,9 @@ def admin_panel():
 @app.route('/admin/create_user', methods=['POST'])
 def admin_create_user():
     if session.get('role') != 'admin': return redirect(url_for('login'))
-    new_id, new_pw, new_nick = request.form['new_id'], hashlib.sha256(request.form['new_pw'].encode()).hexdigest(), request.form['new_nickname']
+    new_id = request.form['new_id']
+    new_pw = hashlib.sha256(request.form['new_pw'].encode()).hexdigest()
+    new_nick = request.form['new_nickname']
     conn = get_db_connection()
     try: conn.execute("INSERT INTO users (user_id, password, nickname, role) VALUES (?, ?, ?, 'user')", (new_id, new_pw, new_nick)); conn.commit()
     except: pass
@@ -199,16 +207,25 @@ def admin_create_user():
 @app.route('/admin/update_user', methods=['POST'])
 def admin_update_user():
     if session.get('role') != 'admin': return redirect(url_for('login'))
-    target_id, new_nick, new_pw = request.form['target_id'], request.form['new_nickname'], request.form.get('new_pw')
+    target_id = request.form['target_id']
+    new_nick = request.form['new_nickname']
+    new_pw = request.form.get('new_pw')
+    
     conn = get_db_connection()
     conn.execute("UPDATE users SET nickname = ? WHERE user_id = ?", (new_nick, target_id))
-    if new_pw and new_pw.strip(): conn.execute("UPDATE users SET password = ? WHERE user_id = ?", (hashlib.sha256(new_pw.encode()).hexdigest(), target_id))
+    
+    if new_pw and new_pw.strip():
+        hashed_pw = hashlib.sha256(new_pw.encode()).hexdigest()
+        conn.execute("UPDATE users SET password = ? WHERE user_id = ?", (hashed_pw, target_id))
+        
     if 'profile_img' in request.files:
         file = request.files['profile_img']
         if file.filename != '':
-            filename = f"{target_id}_{int(time.time())}{os.path.splitext(file.filename)[1]}"
+            ext = os.path.splitext(file.filename)[1]
+            filename = f"{target_id}_{int(time.time())}{ext}"
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             conn.execute('UPDATE users SET profile_img = ? WHERE user_id = ?', (filename, target_id))
+            
     conn.commit(); conn.close(); return redirect(url_for('admin_panel'))
 
 @app.route('/admin/delete_user/<user_id>')
@@ -220,11 +237,13 @@ def admin_delete_user(user_id):
     conn.execute("DELETE FROM history WHERE user_id = ?", (user_id,))
     conn.commit(); conn.close(); return redirect(url_for('admin_panel'))
 
-# [수리] 달력 기록 조회 API
+# [수리] 달력 기록 조회 API (타입 안전성 강화)
 @app.route('/api/get_history/<year>/<month>')
 def get_history(year, month):
     if 'user_id' not in session: return jsonify([])
-    date_prefix = f"{year}-{month.zfill(2)}%"
+    # month가 숫자여도, 문자여도 2자리 문자열로 변환 (예: 2 -> "02")
+    safe_month = str(month).zfill(2)
+    date_prefix = f"{year}-{safe_month}%"
     conn = get_db_connection()
     rows = conn.execute("SELECT date FROM history WHERE user_id=? AND date LIKE ?", (session['user_id'], date_prefix)).fetchall()
     conn.close()

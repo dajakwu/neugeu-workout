@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="manifest" href="/static/manifest.json">
     <style>
-        /* 원본 디자인 유지 */
+        /* 원본 디자인 100% 유지 */
         .main-content { display: flex; flex-direction: column; gap: 20px; padding: 10px; padding-bottom: 100px; }
         
+        /* 가로 스크롤 유지 */
         .friend-bar {
             display: flex; overflow-x: auto; gap: 20px; padding: 15px 5px;
             background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border-color);
@@ -20,7 +21,7 @@
 
         .profile-container { position: relative; display: inline-block; }
         
-        /* 상태 표시 점 (CSS 유지) */
+        /* 상태 표시 점 */
         .status-dot {
             position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; border: 2px solid var(--card-bg); border-radius: 50%; display: none;
         }
@@ -28,8 +29,8 @@
         .status-dot.workout { background: #34C759; display: block; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
 
-        /* 텍스트 상태 표시 (CSS 유지) */
-        .working-out-text { font-size: 10px; font-weight: 800; display: none; margin-top: 4px; }
+        /* 텍스트 상태 표시 */
+        .working-out-text { font-size: 10px; font-weight: 800; display: none; margin-top: 4px; color: #8E8E93; text-align: center;}
         .working-out-text.online { display: block; color: #007AFF; }
         .working-out-text.workout { display: block; color: #34C759; }
 
@@ -129,10 +130,9 @@
             const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             applyTheme(next);
         }
-        // 초기 로드
         applyTheme(localStorage.getItem('theme') || 'light');
 
-        // 2. 상태 관리 및 친구 목록 (디자인 유지하면서 기능만 수리)
+        // 2. 친구 목록 로드 (가로 스크롤 디자인 + 기능 수리)
         async function refreshFriends() {
             try {
                 const response = await fetch('/get_friends_status');
@@ -149,17 +149,16 @@
                 data.friends.forEach(f => {
                     const isMe = f.user_id === "{{ session.user_id }}";
                     
-                    // [기능 수정] 클래스 이름을 정확히 할당하여 CSS(display:block)를 작동시킴
+                    // 상태별 클래스 및 텍스트 설정
                     let statusClass = ''; 
-                    let statusText = '';
+                    let statusText = ''; // 기본값은 빈 문자열
                     let borderColor = 'var(--border-color)';
 
                     if (f.is_working_out === 2) {
                         statusClass = 'workout'; 
                         statusText = '운동 중 🔥'; 
-                        borderColor = '#34C759'; // 초록 테두리
+                        borderColor = '#34C759'; // 초록
                         
-                        // 운동 시작 알림
                         const key = `notified_${f.user_id}`;
                         if (!sessionStorage.getItem(key) && !isMe) {
                             showToast(`${f.nickname}님이 운동을 시작했습니다! 🔥`);
@@ -168,23 +167,23 @@
                     } else if (f.is_working_out === 1) {
                         statusClass = 'online'; 
                         statusText = '접속 중'; 
-                        borderColor = '#007AFF'; // 파랑 테두리
+                        borderColor = '#007AFF'; // 파랑
                         sessionStorage.removeItem(`notified_${f.user_id}`);
                     }
 
-                    // 프로필 이미지 처리 (캐시 방지 적용됨)
+                    // 프로필 이미지
                     const imgTag = f.profile_img 
                         ? `<img src="${f.profile_img}" style="width:55px; height:55px; border-radius:50%; object-fit:cover; border:2px solid ${borderColor};">`
                         : `<div style="width:55px; height:55px; border-radius:50%; background:var(--bg-color); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700; border:2px solid ${borderColor};">${f.nickname[0]}</div>`;
 
-                    // [디자인 유지] 기획자님이 주신 가로 스크롤 아이템 구조 그대로 사용
+                    // [디자인 유지] 가로 스크롤 아이템 구조
                     newHtml += `
                         <div class="friend-item" style="min-width: 80px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;">
                             <div class="profile-container">
                                 ${imgTag}
                                 <div class="status-dot ${statusClass}"></div>
                             </div>
-                            <span style="margin-top:8px; font-size:11px; font-weight:600; color:var(--text-primary);">${f.nickname}${isMe ? ' (나)' : ''}</span>
+                            <span style="margin-top:8px; font-size:11px; font-weight:600; color:var(--text-primary); text-align: center; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.nickname}${isMe ? ' (나)' : ''}</span>
                             <span class="working-out-text ${statusClass}">${statusText}</span>
                         </div>`;
                 });
@@ -205,7 +204,7 @@
             }, 3000);
         }
 
-        // 3. 내 상태 전송 (접속 유지) - Fetch로 확실하게 전송
+        // 3. 내 상태 전송 (접속 유지) - 강력한 Fetch 사용
         function sendHeartbeat() {
             if(navigator.sendBeacon) {
                 const data = JSON.stringify({ status: 1 });
@@ -220,14 +219,11 @@
             }
         }
 
-        // 페이지 로드 즉시 실행
+        // 실행
         sendHeartbeat();
         refreshFriends();
-
-        // 3초마다 갱신
         setInterval(() => { sendHeartbeat(); refreshFriends(); }, 3000);
 
-        // 페이지 나갈 때 오프라인 처리
         window.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 const data = JSON.stringify({ status: 0 });
