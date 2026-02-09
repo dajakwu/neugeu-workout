@@ -3,132 +3,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>느그운동 - 메인</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>느그운동</title>
     <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        /* 원본 디자인 유지 */
-        .main-content { display: flex; flex-direction: column; gap: 20px; padding: 10px; padding-bottom: 100px; }
+        /* [디자인 긴급 수정] 불필요한 여백 제거 및 리스트 스타일 적용 */
+        .friend-card {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+            width: 100%;
+            box-sizing: border-box; /* 패딩 포함 크기 계산 */
+        }
+
+        .friend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* 아이템 간격 */
+        }
+
+        .friend-item {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #F2F2F7;
+        }
+
+        .friend-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .profile-img-box {
+            position: relative;
+            width: 52px;
+            height: 52px;
+            margin-right: 15px; /* 사진과 글자 사이 간격 좁힘 */
+            flex-shrink: 0;
+        }
         
-        .friend-bar {
-            display: flex; overflow-x: auto; gap: 20px; padding: 15px 5px;
-            background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border-color);
-            -webkit-overflow-scrolling: touch; scrollbar-width: thin;
-        }
-        .friend-bar::-webkit-scrollbar { height: 4px; }
-        .friend-bar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
-
-        .profile-container { position: relative; display: inline-block; }
-        .status-dot {
-            position: absolute; bottom: 2px; right: 2px; width: 14px; height: 14px; border: 2px solid var(--card-bg); border-radius: 50%; display: none;
-        }
-        .status-dot.online { background: #007AFF; display: block; }
-        .status-dot.workout { background: #34C759; display: block; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
-
-        .working-out-text { font-size: 10px; font-weight: 800; display: none; margin-top: 4px; }
-        .working-out-text.online { display: block; color: #007AFF; }
-        .working-out-text.workout { display: block; color: #34C759; }
-
-        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; }
-        .toast {
-            background: rgba(28, 28, 30, 0.95); color: #fff; padding: 12px 25px; border-radius: 30px;
-            font-size: 14px; font-weight: 600; margin-bottom: 10px; box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-            animation: slideDown 0.5s ease-out, fadeOut 0.5s 2.5s forwards; white-space: nowrap;
-        }
-        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeOut { to { opacity: 0; visibility: hidden; } }
-
-        .routine-card { background: var(--card-bg); border-radius: 24px; padding: 25px; border: 1px solid var(--border-color); width: 100%; box-sizing: border-box; margin-bottom: 15px; }
-        .welcome-section { padding: 10px 5px; text-align: left; position: relative; }
-        .profile-edit-link { display: inline-block; margin-top: 8px; font-size: 14px; color: var(--accent-color); text-decoration: none; font-weight: 600; }
-
-        .bottom-nav {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 400px; z-index: 1000;
-        }
-        .btn-calendar {
-            width: 100%; padding: 18px; background: var(--text-primary); color: var(--card-bg);
-            border-radius: 20px; font-size: 16px; font-weight: 700; border: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); cursor: pointer; text-align: center; display: block; text-decoration: none;
+        .profile-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
-        /* 다크모드 토글 버튼 스타일 */
-        .theme-toggle {
-            position: absolute; top: 10px; right: 5px; background: var(--border-color);
-            border: none; width: 40px; height: 40px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer;
+        .friend-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
+
+        .friend-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: #1c1c1e;
+            margin-bottom: 3px;
+        }
+
+        .status-text {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        /* 상태별 텍스트 컬러 */
+        .status-online { color: #34C759; font-weight: 700; } /* 초록 */
+        .status-workout { color: #FF2D55; font-weight: 800; } /* 빨강 */
+        .status-offline { color: #8E8E93; } /* 회색 */
     </style>
 </head>
 <body>
-<div id="toast-container"></div>
-    <button class="theme-switch" onclick="toggleTheme()" id="theme-btn">🌙</button>
     <div class="container">
-        <div class="main-content">
-            <div class="friend-bar" id="friend-list-container"></div>
-
-            <div class="welcome-section">
-                <h2 style="font-size: 26px; font-weight: 800; line-height: 1.3; margin: 0;">
-                    <span style="color: var(--accent-color);">{{ session.nickname }}</span>님,<br>환영합니다! 🔥
-                </h2>
-                <a href="/profile" class="profile-edit-link">내 정보 수정 〉</a>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 10px;">
+            <h1 style="font-size: 28px; font-weight: 900; margin: 0;">🔥 느그운동</h1>
+            <div style="display: flex; gap: 15px;">
+                <a href="/calendar" style="font-size: 24px; text-decoration: none;">📅</a>
+                <a href="/profile" style="font-size: 24px; text-decoration: none;">👤</a>
             </div>
+        </div>
 
-            <div class="routine-section">
-                <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 15px; margin-left: 5px;">내 루틴</h3>
-                {% for routine in routines %}
-                <div class="routine-card">
-                    <span style="font-size: 20px; font-weight: 800; display: block; margin-bottom: 20px;">{{ routine.routine_name }}</span>
-                    <div class="btn-group" style="display: flex; flex-direction: column; gap: 10px;">
-                        <button onclick="location.href='/run_routine/{{ routine.id }}'" style="height: 60px; font-size: 18px;">운동 시작</button>
-                        <div class="btn-sub" style="display: flex; gap: 10px;">
-                            <a href="/edit_routine/{{ routine.id }}" class="edit-btn" style="flex: 1; background: var(--bg-color); color: var(--text-primary); text-align: center; line-height: 50px; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 14px; border: 1px solid var(--border-color);">수정</a>
-                            
-                            <form action="/delete_routine/{{ routine.id }}" method="POST" style="flex: 1;" onsubmit="return confirm('삭제할까요?')">
-                                <button type="submit" class="del-btn" style="width: 100%; background: #FFF0F0; color: #FF3B30; border-radius: 12px; font-weight: 600; border: none; height: 50px; font-size: 14px;">삭제</button>
-                            </form>
-                        </div>
-                    </div>
+        <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 15px; color: #1c1c1e;">내 루틴</h2>
+        <div class="routine-list">
+            {% for routine in routines %}
+            <div class="routine-card" onclick="location.href='/run_routine/{{ routine.id }}'">
+                <div class="routine-info">
+                    <span class="routine-name">{{ routine.routine_name }}</span>
+                    {% if routine.is_hj_mode %}
+                    <span style="font-size: 12px; background: #FF2D55; color: white; padding: 2px 8px; border-radius: 10px; margin-left: 5px;">HJ모드</span>
+                    {% endif %}
                 </div>
-                {% endfor %}
-                
-                {% if routines|length < 5 %}
-                    <form action="/add_routine" method="POST" style="margin-top: 10px;">
-                        <input type="hidden" name="routine_name" value="새 루틴">
-                        <button type="submit" style="background-color: var(--border-color); color: var(--text-primary); width: 100%; border: none; height: 50px; border-radius: 12px; font-weight: 600;">+ 루틴 추가</button>
-                    </form>
-                {% endif %}
+                <div class="routine-actions">
+                    <button class="btn-icon edit" onclick="event.stopPropagation(); location.href='/edit_routine/{{ routine.id }}'">⚙️</button>
+                    <button class="btn-icon delete" onclick="event.stopPropagation(); if(confirm('삭제하시겠습니까?')) location.href='/delete_routine/{{ routine.id }}'">🗑️</button>
+                </div>
             </div>
+            {% endfor %}
+            <button class="btn-add" onclick="document.getElementById('add-modal').style.display='flex'">+ 새 루틴 만들기</button>
+        </div>
 
-            <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-                {% if session.get('role') == 'admin' %}
-                    <button onclick="location.href='/admin'" style="background-color: #5856D6; width: 100%; border: none; height: 50px; border-radius: 12px; color: white; font-weight: 600;">관리자 패널</button>
-                {% endif %}
-                <a href="/logout" style="text-align: center; color: var(--text-secondary); text-decoration: none; font-size: 14px; padding: 15px;">로그아웃</a>
+        <div style="height: 40px;"></div>
+
+        <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 15px; color: #1c1c1e;">친구들의 상태</h2>
+        <div class="friend-card">
+            <div id="friend-list-container" class="friend-list">
+                <div style="text-align: center; padding: 20px; color: #8e8e93;">불러오는 중...</div>
             </div>
         </div>
     </div>
-    
-    <div class="bottom-nav">
-        <a href="/calendar" class="btn-calendar">📅 캘린더 / 기록 보기</a>
+
+    <div id="add-modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <h3>새 루틴 이름</h3>
+            <form action="/add_routine" method="POST">
+                <input type="text" name="routine_name" placeholder="예: 가슴/삼두 박살" required autofocus>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-cancel" onclick="document.getElementById('add-modal').style.display='none'">취소</button>
+                    <button type="submit" class="btn-confirm">생성</button>
+                </div>
+            </form>
+        </div>
     </div>
 
-<script>
-        // 1. 테마 적용 로직 (기존 유지)
-        function applyTheme(theme) {
-            document.body.setAttribute('data-theme', theme);
-            localStorage.setItem('theme', theme);
-            const btn = document.getElementById('theme-btn');
-            if(btn) btn.innerHTML = theme === 'dark' ? '☀️' : '🌙';
-        }
-        function toggleTheme() {
-            const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-            applyTheme(next);
-        }
-        applyTheme(localStorage.getItem('theme') || 'light');
+    <div id="toast-container" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999; width: 90%; max-width: 350px;"></div>
 
-        // 2. 친구 목록 불러오기 (텍스트 방식 UI)
+    <script>
+        // 1. [기능 수정] 강력한 접속 신호 전송 (Fetch 사용)
+        function sendHeartbeat() {
+            fetch('/update_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 1 }) 
+            }).catch(err => console.log('접속 신호 실패:', err));
+        }
+
+        // 2. 친구 목록 불러오기 & UI 렌더링
         async function refreshFriends() {
             try {
                 const response = await fetch('/get_friends_status');
@@ -136,51 +148,48 @@
                 
                 const data = await response.json();
                 const container = document.getElementById('friend-list-container');
-                if (!data.friends || !container) return;
+                if (!data.friends) return;
 
-                // 운동 중인 사람 우선 정렬
+                // 정렬: 운동 중 -> 접속 중 -> 오프라인 순서
                 data.friends.sort((a, b) => b.is_working_out - a.is_working_out);
                 
                 let newHtml = '';
                 data.friends.forEach(f => {
                     const isMe = f.user_id === "{{ session.user_id }}";
                     
-                    // [수정] 기획자님이 원하시는 텍스트 방식 상태 표시
                     let statusText = "오프라인";
-                    let statusColor = "#8E8E93"; // 기본 회색 (오프라인)
-                    let fontWeight = "400";
+                    let statusClass = "status-offline";
+                    let statusIcon = "";
 
                     if (f.is_working_out === 2) {
-                        statusText = "운동 중 🔥";
-                        statusColor = "#FF2D55"; // 빨강
-                        fontWeight = "800";
+                        statusText = "운동 중";
+                        statusClass = "status-workout";
                         
-                        // 운동 시작 알림 (토스트)
+                        // 운동 시작 알림
                         const key = `notified_${f.user_id}`;
                         if (!sessionStorage.getItem(key) && !isMe) {
-                            showToast(`${f.nickname}님이 운동을 시작했습니다! 🔥`);
+                            showToast(`${f.nickname}님이 운동을 시작했습니다!`);
                             sessionStorage.setItem(key, 'true');
                         }
                     } else if (f.is_working_out === 1) {
                         statusText = "접속 중";
-                        statusColor = "#34C759"; // 초록
-                        fontWeight = "700";
+                        statusClass = "status-online";
                         sessionStorage.removeItem(`notified_${f.user_id}`);
                     }
 
-                    // 프로필 이미지 (테두리 없이 깔끔하게)
+                    // 프로필 이미지 처리
                     const imgTag = f.profile_img 
-                        ? `<img src="${f.profile_img}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">`
-                        : `<div style="width:48px; height:48px; border-radius:50%; background:var(--bg-color); display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700;">${f.nickname[0]}</div>`;
+                        ? `<img src="${f.profile_img}" class="profile-img">`
+                        : `<div style="width:100%; height:100%; border-radius:50%; background:#F2F2F7; display:flex; align-items:center; justify-content:center; color:#8E8E93; font-weight:700;">${f.nickname[0]}</div>`;
 
                     newHtml += `
-                        <div class="friend-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color); width: 100%;">
-                            <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="friend-item">
+                            <div class="profile-img-box">
                                 ${imgTag}
-                                <div style="display: flex; flex-direction: column; align-items: flex-start;">
-                                    <span style="font-weight: 700; font-size: 16px; color: var(--text-primary);">${f.nickname}${isMe ? ' (나)' : ''}</span>
-                                    <span style="font-size: 13px; color: ${statusColor}; font-weight: ${fontWeight}; margin-top: 2px;">${statusText}</span>
-                                </div>
+                            </div>
+                            <div class="friend-info">
+                                <span class="friend-name">${f.nickname} ${isMe ? '<span style="font-size:12px; color:#007AFF; font-weight:400;">(나)</span>' : ''}</span>
+                                <span class="status-text ${statusClass}">${statusText}</span>
                             </div>
                         </div>`;
                 });
@@ -190,10 +199,9 @@
 
         function showToast(msg) {
             const container = document.getElementById('toast-container');
-            if (!container) return;
             const toast = document.createElement('div');
-            toast.className = 'toast';
             toast.innerText = msg;
+            toast.style.cssText = "background: rgba(0,0,0,0.85); color: white; padding: 12px 20px; border-radius: 25px; margin-bottom: 10px; font-weight: 600; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); animation: fadein 0.3s forwards;";
             container.appendChild(toast);
             setTimeout(() => {
                 toast.style.opacity = '0';
@@ -201,13 +209,28 @@
             }, 3000);
         }
 
-        // 3초마다 친구 목록 갱신
+        // 3. 실행 로직
+        // 페이지 켜자마자 즉시 실행
+        sendHeartbeat();
         refreshFriends();
-        setInterval(refreshFriends, 3000);
+
+        // 3초마다 반복 (접속 유지 & 친구 목록 갱신)
+        setInterval(() => {
+            sendHeartbeat();
+            refreshFriends();
+        }, 3000);
+
+        // 페이지 나갈 때 오프라인 처리 (보조 수단)
+        window.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                navigator.sendBeacon('/update_status', JSON.stringify({ status: 0 }));
+            } else {
+                sendHeartbeat(); // 돌아오면 즉시 접속 신호
+            }
+        });
     </script>
     <style>
-        .status-badge { position: absolute; bottom: 0; right: 0; font-size: 16px; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadein { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </body>
 </html>
